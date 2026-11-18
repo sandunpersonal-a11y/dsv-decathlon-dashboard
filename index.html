@@ -68,6 +68,18 @@
 .kpi-group .card span,.kpi-group .card small{font-size:.62rem}
 .kpi-group .card strong{font-size:.98rem;margin:1px 0;color:var(--kpi-ink)}
 .kpi-group .card .ui-icon{width:11px;height:11px;margin-right:3px;color:var(--kpi-ink)}
+
+#cards{display:grid;gap:12px;overflow:visible}
+.kpi-group{min-width:0;padding:0 0 6px;overflow:hidden}
+.kpi-group h2{background:var(--kpi-ink);color:white;font-size:.88rem;padding:7px 10px;margin:0}
+.kpi-row{overflow:auto;padding:6px 7px 2px}
+.kpi-group .card{min-width:max-content;background:var(--kpi-panel);padding:4px 8px}
+.staffing{margin:5px 8px 0}
+.staffing summary{font-size:.77rem;font-weight:700;cursor:pointer;padding:4px 0}
+.staffing th,.staffing td{padding:4px 8px;font-size:.74rem}
+.staffing th{background:var(--kpi-panel)}
+.staffing td{background:#fff;text-align:right}
+.staffing p{font-size:.68rem;margin:4px 0 0;color:#415972}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -147,6 +159,19 @@ function chart(rows, directions, measure) {
     `<div class="barrow"><span>${operationName(s.direction)}</span><div class="track" aria-hidden="true"><span class="bar ${s.direction==='L'?'load':''}" style="width:${100*s.value/max}%"></span></div>
     <b class="chart-value">${counts?s.value:s.times.length?duration(s.value):'—'}</b></div>${!counts&&s.times.length?`<small class="time-note">Shortest ${duration(Math.min(...s.times))} · Longest ${duration(Math.max(...s.times))} · ${s.times.length} operations</small>`:''}`).join('')}</div>`).join('')}</article>`;
 }
+function staffing(rows) {
+  const types=[...new Set(rows.map(o=>o.kind))].sort();
+  if(!types.length)return '';
+  const roles=['operators','tally','supervisors'];
+  const body=types.map(kind=>{
+    const visits=rows.filter(o=>o.kind===kind);
+    const counts=roles.map(role=>visits.reduce((total,o)=>total+o[role].length,0));
+    return `<tr><th scope="row">${esc(kind)}</th><td>${visits.length}</td><td>${fmt(sum(visits,'heads')/visits.length,1)}</td>${counts.map(n=>`<td>${n}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<details class="staffing" open><summary>Crew Deployment by Vehicle Type</summary>
+    <div class="scroll"><table><thead><tr><th scope="col">Type</th><th scope="col">Visits</th><th scope="col">Avg. Heads / Visit</th><th scope="col">Operator Assignments</th><th scope="col">Tally Clerk Assignments</th><th scope="col">Supervisor Assignments</th></tr></thead><tbody>${body}</tbody></table></div>
+    <p>Each EPF counts once per role per visit. Repeat visits count again.</p></details>`;
+}
 let from='',to='';
 function render() {
   el('rangeText').textContent=from&&to?`${from} – ${to}`:'All dates';
@@ -190,7 +215,7 @@ function render() {
         card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
-    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2><div class="kpi-row">${metrics.join('')}</div></section>`;
+    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2><div class="kpi-row">${metrics.join('')}</div>${staffing(items)}</section>`;
   }).join('');
   const strip=el('crewStrip');
   strip.hidden=!selected;
@@ -220,8 +245,8 @@ el('week').addEventListener('change',()=>{
   to=from?addDays(from,6):'';
   render();
 });
-for(const id of ['direction','vehicle'])el(id).addEventListener('input',render);
-el('kind').addEventListener('input',()=>{
+for(const id of ['direction','vehicle'])el(id).addEventListener('change',render);
+el('kind').addEventListener('change',()=>{
   if(!el('kind').value)el('vehicle').value='';
   render();
 });
