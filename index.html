@@ -125,8 +125,16 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .working-hours strong{display:block;font-size:.78rem}
 @media(min-width:850px){.visit-overview:has(#crewStrip:not([hidden])):has(#costSummary:not([hidden])){grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
 @media(max-width:849px){#costSummary{grid-row:1}}
+
+#costSummary article{background:#fbf3e9;border-color:#e8d2ba;color:#70491f}
+#costSummary article:last-child{background:#edf2f5;border-color:#cad6df;color:#263b4b}
+.crew-strip-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.65fr) repeat(2,minmax(0,1fr)) minmax(0,1.25fr);align-items:start;gap:4px}
+.crew-strip-row>*{min-width:0}
+.crew-strip-row .card,.crew-strip-row .locked{overflow-wrap:anywhere}
+.crew-strip-row .filter-field>span,.crew-strip-row .card span,.crew-strip-row .locked{font-size:clamp(.59rem,.85vw,.76rem)}
+#visitCost{padding:9px 11px}#visitCost th,#visitCost td{padding:4px 7px}
 </style>
-<header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Working Hours update</small></header>
+<header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Day &amp; OT Cost Breakdown</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Week<select id="week"></select></label>
@@ -139,8 +147,8 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
 <div class="visit-overview"><section id="crewStrip" aria-label="Selected vehicle crew" hidden></section><section id="costSummary" aria-label="Operation cost summary" hidden></section></div>
-<section id="cards" class="cards" aria-label="Operations summary"></section>
 <section id="visitCost" class="panel" aria-label="Selected visit cost" hidden></section>
+<section id="cards" class="cards" aria-label="Operations summary"></section>
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
 <thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
@@ -165,7 +173,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </div>
 <h3>Monthly Payroll</h3>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
-<p class="muted">Default paid hours apply to all employees. OT rates are recorded for reference until actual OT hours are available.</p>
+<p class="muted">Default paid hours apply to all employees. OT rates apply to estimated hours outside 08:00–17:00.</p>
 <div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="addPay" type="button">Add Employee</button>
 <p id="costMessage" class="muted" role="status"></p>
@@ -199,7 +207,7 @@ function splitWorkingMinutes(start,end){
 }
 function workingHours(visit){
   const hours=splitWorkingMinutes(visit.start,visit.end);
-  const metrics=[['Day Hours',hours?.day],['OT Hours',hours?.ot],['Total Hours',hours?.total]];
+  const metrics=[['Day Hours',hours?.day],['OT Hours',hours?.ot],['Total Hours',hours?.total]].filter(([label,value])=>label==='Total Hours'||value>0);
   return `<section class="working-hours" aria-label="Working hours">
     <h3>Working Hours <small>Day 08:00–17:00</small></h3>
     <div>${metrics.map(([label,value])=>`<span>${label}<strong>${value===undefined?'—':duration(value)}</strong></span>`).join('')}</div>
@@ -426,26 +434,35 @@ function readCosts(){
 let costSettings=readCosts();
 function visitEstimate(visit){
   const payroll=new Map(costSettings.payroll.map(person=>[person.epf,person]));
-  const durationHours=visit.minutes/60;
+  const time=splitWorkingMinutes(visit.start,visit.end);
+  const showDay=time?.day>0,showOT=time?.ot>0;
   const roles=[['Supervisor',visit.supervisors],['Tally Clerk',visit.tally],['Operator',visit.operators]];
   const assigned=new Set();
-  const hourlyRates=new Map();
+  const costs=new Map();
+  const showCost=value=>value===null?'—':money(value);
   const personRows=roles.flatMap(([role,list])=>[...new Set(list.map(String))].map(epf=>{
     const person=payroll.get(epf);
     const hours=costSettings.hours;
-    const hourly=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
+    const regularRate=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
       (person.basic+person.allowance)/hours:null;
+    const dayCost=time?.day===0?0:time&&regularRate!==null?regularRate*time.day/60:null;
+    const otCost=time?.ot===0?0:time&&knownAmount(person?.ot)?person.ot*time.ot/60:null;
+    const priced=(time?.day>0&&dayCost!==null)||(time?.ot>0&&otCost!==null)||(time?.total===0);
+    const complete=dayCost!==null&&otCost!==null;
+    const total=(dayCost??0)+(otCost??0);
     assigned.add(epf);
-    if(hourly!==null)hourlyRates.set(epf,hourly);
-    return `<tr><td>${role}</td><td>${esc(epf)}</td><td>${esc(person?.designation||'—')}</td><td>${fmt(durationHours,2)}</td><td>${hourly===null?'—':money(hourly)}</td><td>${hourly===null?'Payroll or hours missing':money(hourly*durationHours)}</td></tr>`;
+    costs.set(epf,{priced,complete,total});
+    return `<tr><td>${role}</td><td>${esc(epf)}</td>${showDay?`<td>${duration(time.day)}</td><td>${showCost(dayCost)}</td>`:''}${showOT?`<td>${duration(time.ot)}</td><td>${showCost(otCost)}</td>`:''}<td>${priced?money(total):'—'}${priced&&!complete?' · partial':''}</td></tr>`;
   })).join('');
-  const labour=[...hourlyRates.values()].reduce((total,rate)=>total+rate*durationHours,0);
+  const recordedCosts=[...costs.values()];
+  const labour=recordedCosts.reduce((total,entry)=>total+entry.total,0);
+  const priced=recordedCosts.filter(entry=>entry.priced).length;
   const area=estimatedArea(visit.cbm);
   const rate=visit.direction==='L'?costSettings.load:costSettings.unload;
   const areaCost=knownAmount(rate)?area*rate:null;
-  const missing=assigned.size-hourlyRates.size;
+  const missing=recordedCosts.filter(entry=>!entry.complete).length;
   const crewGap=visit.heads!==assigned.size;
-  return {personRows,roles,assigned,labour,priced:hourlyRates.size,area,rate,areaCost,missing,crewGap};
+  return {personRows,showDay,showOT,roles,assigned,labour,priced,area,rate,areaCost,missing,crewGap};
 }
 function renderVisitCost(visit,rows,direction){
   const panel=el('visitCost');
@@ -468,11 +485,11 @@ function renderVisitCost(visit,rows,direction){
     tile('Labour Cost',hasLabour?money(labour):'—','Estimated crew cost')+
     tile('Total Cost',hasLabour||hasArea?money(labour+areaCost):'—',complete?'Estimated total':'Known costs only');
   if(!visit)return;
-  const {personRows,roles,assigned,missing,crewGap}=estimates[0];
+  const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<h2>${operationName(visit.direction)} Cost · ${esc(visit.vehicle)}</h2>
-    <p class="muted">Estimated labour uses the full visit duration per listed EPF. Actual staff clock-in/out and overtime rates are unavailable in the operation data.</p>
-    ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing payroll or paid hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
-    ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th><th>Designation</th><th>Est. Hours</th><th>LKR / Hour</th><th>Est. Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
+    <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses the saved OT per Hour rate.</p>
+    ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
+    ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
 }
 function addPayrollRow(person={},editing=false){
