@@ -18,24 +18,29 @@
 .crew-strip-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:6px;margin-bottom:8px}
 .crew-strip-row .locked{min-height:28px;padding:4px 7px}.crew-context{font-size:.73rem;margin:6px 0 4px;color:#415972}
 #rangeDialog{width:min(375px,94vw)}.calendar-nav,.calendar-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}.calendar-nav button,.calendar-actions button{width:auto}.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;text-align:center}.calendar button{padding:6px 1px;font-size:.82rem}.calendar .in-range{background:#e0f1fb}.calendar .endpoint,#applyDates{background:#245eb2;color:white}.calendar small{color:#415972}.time-note{display:block;margin:0 0 6px 90px;color:#4c6177;font-size:.72rem}
+
+.ui-icon{width:15px;height:15px;vertical-align:-3px;margin-right:5px;flex:none}
+.card.loading{background:#edf5ff;border-left-color:#2c6eb9}.card.unloading{background:#eaf7f4;border-left-color:#218174}
+.card.clock{background:#f1f0fc;border-left-color:#6457ad}.card.volume,.card.area{background:#fff6e8;border-left-color:#a36b22}
+.card .ui-icon{color:#2c5b83}.filter-field button .ui-icon,label .ui-icon{color:#2c6eb9}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Week<select id="week"></select></label>
-<div class="filter-field"><span id="rangeLabel">Date Range</span><button id="dateRange" aria-haspopup="dialog" aria-labelledby="rangeLabel dateRange">All dates</button></div>
+<div class="filter-field"><span id="rangeLabel">Date Range</span><button id="dateRange" aria-haspopup="dialog" aria-labelledby="rangeLabel dateRange"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg><span id="rangeText">All dates</span></button></div>
 <label>Operation<select id="direction"><option value="">All operations</option><option value="L">Loading</option><option value="U">Unloading</option></select></label>
 <label>Vehicle Type<select id="kind"><option value="">All types</option><option>20GP</option><option>40HC</option><option>LRY</option></select></label>
-<label>Vehicle Number<select id="vehicle"><option value="">All vehicles</option></select></label>
+<label><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Vehicle Number<select id="vehicle"><option value="">All vehicle visits</option></select></label>
 <div class="filter-field"><span id="containerLabel">Container Number</span><output class="locked" id="container" aria-labelledby="containerLabel"></output></div>
-<button id="reset">Reset filters</button>
+<button id="reset"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg>Reset filters</button>
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
 <section id="crewStrip" aria-label="Selected vehicle crew" hidden></section>
 <section id="cards" class="cards" aria-label="Operations summary"></section>
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
-<section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
-<thead><tr><th>Dept Reg No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
+<section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
+<thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
 <footer class="muted">Source Dashboard File.xlsx · Sheet1 · Decathlon records only. Date filters use operation start dates. Estimated unloading area uses 1.7 CBM per 25 sq ft. The workbook has no unloading location, delay or employee name fields.</footer>
 </main>
 <dialog id="rangeDialog" aria-labelledby="calendarTitle">
@@ -67,10 +72,15 @@ const weekNumber = mondayDate => {
 el('week').innerHTML = '<option value="">All weeks / custom</option>'+weeks.map(w=>
   `<option value="${w}">${weekNumber(w)}</option>`).join('');
 const sum = (rows,key) => rows.reduce((total,row)=>total+row[key],0);
-const card = (label,value,note) => `<article class="card"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`;
+const metricIcons = {'truck':'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>','clock':'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>','volume':'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 4v10l-8 4-8-4V7zm-8 4 8 4 8-4m-8 4v10"/></svg>','area':'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h4m-4 5h4m4 6v-4m5 4v-4"/></svg>'};
+const card = (label,value,note,icon,direction) => `<article class="card ${direction==='L'?'loading':'unloading'} ${icon}"><span>${metricIcons[icon]}${label}</span><strong>${value}</strong><small>${note}</small></article>`;
 const estimatedArea = cbm => cbm/1.7*25;
-const unique = (rows,key) => [...new Set(rows.map(o=>o[key]).filter(Boolean))];
-const vehicleName = o => o.vehicle.trim().toUpperCase();
+const visitLabel = o => {
+  const firstDocument=o.cargo[0].document;
+  const remaining=o.cargo.length-1;
+  const documentType=o.direction==='L'?'GDN':'GRN';
+  return `${o.vehicle} · ${stamp(o.start)} · ${documentType} ${firstDocument}${remaining?' +'+remaining:''}`;
+};
 const average = rows => rows.length ? sum(rows,'minutes')/rows.length : 0;
 const crewDetails = o => `<div class="crew">${[['Tally Clerks',o.tally],['Supervisors',o.supervisors],['Operators',o.operators]].map(([label,ids])=>
   `<div class="crew-role"><strong>${label}</strong><span class="chip">${ids.length}</span><br>EPF ${esc(ids.join(', ')||'Unrecorded')}</div>`).join('')}</div>`;
@@ -93,7 +103,7 @@ function chart(rows, directions, measure) {
 }
 let from='',to='';
 function render() {
-  el('dateRange').textContent=from&&to?`${from} to ${to}`:'All dates';
+  el('rangeText').textContent=from&&to?`${from} to ${to}`:'All dates';
   const direction=el('direction').value,kind=el('kind').value;
   const invalid=from && to && from>to;
   const context=operations.filter(o=>{
@@ -102,12 +112,12 @@ function render() {
       (!direction||o.direction===direction) && (!kind||o.kind===kind);
   });
   const current=el('vehicle').value;
-  const vehicles=[...new Set(context.map(vehicleName))].sort();
-  el('vehicle').innerHTML='<option value="">All vehicles</option>'+vehicles.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-  const selected=vehicles.includes(current)?current:'';
-  el('vehicle').value=selected;
-  const rows=context.filter(o=>!selected||vehicleName(o)===selected).sort((a,b)=>b.start.localeCompare(a.start));
-  el('container').textContent=selected?unique(rows,'container').join(', '):'';
+  const visits=[...context].sort((a,b)=>a.vehicle.localeCompare(b.vehicle)||b.start.localeCompare(a.start));
+  el('vehicle').innerHTML='<option value="">All vehicle visits</option>'+visits.map(o=>`<option value="${o.reg}">${esc(visitLabel(o))}</option>`).join('');
+  const selected=visits.find(o=>String(o.reg)===current);
+  el('vehicle').value=selected?String(selected.reg):'';
+  const rows=(selected?[selected]:context).sort((a,b)=>b.start.localeCompare(a.start));
+  el('container').textContent=selected?.container || '';
   const directions=direction?[direction]:['L','U'];
   const dates=operations.map(o=>o.start.slice(0,10)).sort();
   el('range').textContent=invalid?'From date must be on or before To date.':`${rows.length} operations · ${from||dates[0]} to ${to||dates.at(-1)} · Sri Lanka time`;
@@ -116,11 +126,11 @@ function render() {
     const label=operationName(d);
     const cbm=sum(items,'cbm');
     return [
-      card(label+' Operations',items.length,`${new Set(items.map(vehicleName)).size} distinct vehicle numbers`),
-      card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed'),
+      card(label+' Operations',items.length,`${new Set(items.flatMap(o=>o.cargo.map(c=>c.document))).size} ${d==='L'?'GDN':'GRN'} documents`,'truck',d),
+      card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed','clock',d),
       ...(d==='U'?[
-        card('Unloaded Volume',fmt(cbm,3)+' CBM','Total unloading cargo volume'),
-        card('Estimated Unloading Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft'),
+        card('Unloaded Volume',fmt(cbm,3)+' CBM','Total unloading cargo volume','volume',d),
+        card('Estimated Unloading Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]:[]),
     ];
   }).join('');
@@ -128,11 +138,11 @@ function render() {
   strip.hidden=!selected;
   strip.innerHTML=selected?rows.map(o=>{
     const fields=[['Head Count',o.heads],['Operator EPF',o.operators.join(', '),o.operators.length],['Tally Clerk EPF',o.tally.join(', '),o.tally.length],['Supervisor EPF',o.supervisors.join(', '),o.supervisors.length]];
-    return `<p class="crew-context">${operationName(o.direction)} · Reg ${o.reg} · ${stamp(o.start)}</p><div class="crew-strip-row">${fields.map(([label,value,count],i)=>
+    return `<p class="crew-context">${operationName(o.direction)} · Reg ${o.reg} · ${esc(o.cargo.map(c=>c.document).join(", "))}</p><div class="crew-strip-row">${fields.map(([label,value,count],i)=>
       `<div class="filter-field"><span id="crew-${o.reg}-${i}">${label}${count===undefined?'':`<b class="chip">${count}</b>`}</span><output class="locked" aria-labelledby="crew-${o.reg}-${i}">${esc(value)}</output></div>`).join('')}</div>`;
   }).join(''):'';
   el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
-  el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.reg}">${o.reg}</button></td>${[o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="11">No matching operations.</td></tr>';
+  el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.reg}">${o.reg}</button></td>${[o.cargo.length===1?o.cargo[0].document:`${o.cargo[0].document} +${o.cargo.length-1}`,o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12">No matching operations.</td></tr>';
 }
 function showDetails(reg) {
   const o=operations.find(row=>String(row.reg)===reg);
