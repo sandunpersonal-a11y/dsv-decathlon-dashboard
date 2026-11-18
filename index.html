@@ -40,6 +40,23 @@
 #dateRange{font-size:.63rem;white-space:nowrap}#reset{align-self:end}
 #crewStrip{padding:4px 5px}.crew-strip-row{align-items:center;gap:4px 6px}.crew-strip-row .filter-field>span,.crew-strip-row .locked{font-size:.65rem}
 .crew-strip-row .card{padding:3px 7px}.crew-strip-row .card span{font-size:.65rem}.crew-strip-row .card strong{font-size:.85rem}.crew-strip-row .card small:empty{display:none}
+
+.filters{gap:6px;padding:8px 10px}
+.filters>label:first-child{max-width:none}
+.filters>*{min-width:0}
+.filters select,.filters button,.filters .locked{min-height:28px;padding:3px 5px;font-size:.72rem}
+.filters label,.filters .filter-field>span{font-size:.72rem}
+#dateRange{font-size:.64rem}
+#reset{white-space:nowrap}
+@media(min-width:760px){
+  .filters{grid-template-columns:86px 145px minmax(95px,1fr) minmax(90px,1fr) minmax(130px,1.35fr) minmax(100px,1fr) 88px}
+}
+#crewStrip{padding:7px 9px}
+.crew-strip-row{gap:6px 9px}
+.crew-strip-row .filter-field>span,.crew-strip-row .locked,.crew-strip-row .card span{font-size:.76rem}
+.crew-strip-row .locked{min-height:25px;padding:4px 7px}
+.crew-strip-row .card{padding:5px 8px}
+.crew-strip-row .card strong{font-size:1rem}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -150,8 +167,8 @@ function render() {
         card('Unloaded Volume',fmt(cbm,3)+' CBM','Total unloading cargo volume','volume',d),
         card('Estimated Unloading Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]:[
-        card('Loading CBM',fmt(cbm,3)+' CBM','Total loaded cargo volume','volume',d),
-        card('Est. Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
+        card('Loading Volume',fmt(cbm,3)+' CBM','Total loaded cargo volume','volume',d),
+        card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
   }).join('');
