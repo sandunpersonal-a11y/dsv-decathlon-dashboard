@@ -33,6 +33,13 @@
 .crew-strip-row .filter-field>span,.crew-strip-row .locked{font-size:.69rem}.crew-strip-row .filter-field>span{margin-bottom:2px}.crew-strip-row .locked{min-height:0;padding:3px 5px}.crew-strip-row .chip{min-width:0;padding:0 4px}
 #rangeDialog{width:min(264px,94vw);padding:11px}#rangeDialog h2{font-size:.95rem}#rangeDialog .muted{font-size:.72rem}.calendar button{padding:3px 0;font-size:.72rem}.calendar-nav,.calendar-actions{margin:5px 0;font-size:.74rem}.calendar-nav button,.calendar-actions button{padding:4px 6px}
 .chart-grid .panel{border-top:3px solid #326c9b;box-shadow:0 4px 14px #1836540a}.track{height:9px}.bar{border-radius:5px;background:linear-gradient(90deg,#16857c,#42ad92)}.bar.load{background:linear-gradient(90deg,#285dad,#5694d7)}
+
+.filters{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:6px;padding:8px}
+.filters>label:first-child{max-width:100px}.filters label,.filters .filter-field>span{font-size:.74rem}
+.filters select,.filters button,.filters .locked{min-height:30px;padding:4px 5px;font-size:.75rem}
+#dateRange{font-size:.63rem;white-space:nowrap}#reset{align-self:end}
+#crewStrip{padding:4px 5px}.crew-strip-row{align-items:center;gap:4px 6px}.crew-strip-row .filter-field>span,.crew-strip-row .locked{font-size:.65rem}
+.crew-strip-row .card{padding:3px 7px}.crew-strip-row .card span{font-size:.65rem}.crew-strip-row .card strong{font-size:.85rem}.crew-strip-row .card small:empty{display:none}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -51,7 +58,7 @@
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
 <thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
-<footer class="muted">Source Dashboard File.xlsx · Sheet1 · Decathlon records only. Date filters use operation start dates. Estimated unloading area uses 1.7 CBM per 25 sq ft. The workbook has no unloading location, delay or employee name fields.</footer>
+<footer class="muted">Source Dashboard File.xlsx · Sheet1 · Decathlon records only. Date filters use operation start dates. Estimated pick and unloading areas use 1.7 CBM per 25 sq ft. The workbook has no unloading location, delay or employee name fields.</footer>
 </main>
 <dialog id="rangeDialog" aria-labelledby="calendarTitle">
 <h2 id="calendarTitle">Date Range</h2>
@@ -106,7 +113,7 @@ function chart(rows, directions, measure) {
     })
   }));
   const max=Math.max(1,...groups.flatMap(g=>g.series.map(s=>s.value)));
-  return `<article class="panel"><h2>${counts?'Operations by Vehicle Type':'Average Handling Time by Vehicle Type'}</h2>
+  return `<article class="panel"><h2>${counts?'Operations by Vehicle Type':'Handling Time by Vehicle Type'}</h2>
   <p class="muted">${counts?'Vehicle visits counted by Dept Reg No.':'Elapsed time from start to finish per operation'}</p>
   ${groups.map(g=>`<div class="chart-group"><strong>${g.kind}</strong>${g.series.map(s=>
     `<div class="barrow"><span>${operationName(s.direction)}</span><div class="track" aria-hidden="true"><span class="bar ${s.direction==='L'?'load':''}" style="width:${100*s.value/max}%"></span></div>
@@ -129,7 +136,7 @@ function render() {
   el('vehicle').value=selected?selected.id:'';
   const rows=(selected?[selected]:context).sort((a,b)=>b.start.localeCompare(a.start));
   el('container').textContent=selected?.container || '';
-  const directions=direction?[direction]:['L','U'];
+  const directions=selected?[selected.direction]:direction?[direction]:['L','U'];
   const dates=operations.map(o=>o.start.slice(0,10)).sort();
   el('range').textContent=invalid?'From date must be on or before To date.':`${rows.length} operations · ${from||dates[0]} to ${to||dates.at(-1)} · Sri Lanka time`;
   el('cards').innerHTML=directions.flatMap(d=>{
@@ -138,19 +145,23 @@ function render() {
     const cbm=sum(items,'cbm');
     return [
       ...(d==='U'?[card('Unloading Operations',items.length,`${new Set(items.flatMap(o=>o.cargo.map(c=>c.document))).size} GRN documents`,'truck',d)]:[]),
-      card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed','clock',d),
+      ...(!selected?[card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed','clock',d)]:[]),
       ...(d==='U'?[
         card('Unloaded Volume',fmt(cbm,3)+' CBM','Total unloading cargo volume','volume',d),
         card('Estimated Unloading Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
-      ]:[]),
+      ]:[
+        card('Loading CBM',fmt(cbm,3)+' CBM','Total loaded cargo volume','volume',d),
+        card('Est. Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
+      ]),
     ];
   }).join('');
   const strip=el('crewStrip');
   strip.hidden=!selected;
   strip.innerHTML=selected?rows.map(o=>{
-    const fields=[['Head Count',o.heads],['Operator EPF',o.operators.join(', '),o.operators.length],['Tally Clerk EPF',o.tally.join(', '),o.tally.length],['Supervisor EPF',o.supervisors.join(', '),o.supervisors.length]];
-    return `<div class="crew-strip-row">${fields.map(([label,value,count],i)=>
+    const fields=[['Head Count',o.heads],['Supervisor EPF',o.supervisors.join(', '),o.supervisors.length],['Tally Clerk EPF',o.tally.join(', '),o.tally.length],['Operator EPF',o.operators.join(', '),o.operators.length]];
+    return `<div class="crew-strip-row">${card(operationName(o.direction)+' Time',duration(o.minutes),'','clock',o.direction)}${fields.map(([label,value,count],i)=>
       `<div class="filter-field"><span id="crew-${o.reg}-${i}">${label}${count===undefined?'':`<b class="chip">${count}</b>`}</span><output class="locked" aria-labelledby="crew-${o.reg}-${i}">${esc(value)}</output></div>`).join('')}</div>`;
+
   }).join(''):'';
   el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
   el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.id}">${o.reg}</button></td>${[o.cargo.length===1?o.cargo[0].document:`${o.cargo[0].document} +${o.cargo.length-1}`,o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12">No matching operations.</td></tr>';
@@ -172,7 +183,11 @@ el('week').addEventListener('change',()=>{
   to=from?addDays(from,6):'';
   render();
 });
-for(const id of ['direction','kind','vehicle'])el(id).addEventListener('input',render);
+for(const id of ['direction','vehicle'])el(id).addEventListener('input',render);
+el('kind').addEventListener('input',()=>{
+  if(!el('kind').value)el('vehicle').value='';
+  render();
+});
 el('reset').addEventListener('click',()=>{
   for(const id of ['week','direction','kind','vehicle'])el(id).value='';
   from=to='';
