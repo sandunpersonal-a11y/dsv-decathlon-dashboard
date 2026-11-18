@@ -102,6 +102,14 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .rate-box input[readonly],#payrollRows input[readonly]{background:#edf3f8}button:disabled{opacity:.5;cursor:default}
 [data-save-pay]:enabled,[data-save-rate]:enabled{background:#155f79;color:white}
 #costSettings{width:min(1120px,94vw)}
+
+#payrollLock{width:min(340px,94vw)}#pinMessage{color:#9b2c2c;font-size:.78rem;margin:6px 0 0}
+.rate-box[data-rate="hours"]{width:fit-content;max-width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:5px 7px;margin:0 0 5px}
+.rate-box[data-rate="hours"] label{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.72rem}
+.rate-box[data-rate="hours"] input{width:65px;padding:3px 5px;margin:0}
+.rate-box[data-rate="hours"] button{margin:0}
+#costSettings th,#costSettings td{padding:5px 6px;font-size:.76rem}
+#payrollRows input{min-width:65px}
 </style>
 <header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -123,19 +131,27 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 <thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
 <footer class="muted">Source Dashboard File.xlsx · Sheet1 · Decathlon records only. Date filters use operation start dates. Estimated pick and unloading areas use 1.7 CBM per 25 sq ft. The workbook has no unloading location, delay or employee name fields.</footer>
 </main>
+<dialog id="payrollLock" aria-labelledby="payrollLockTitle">
+<form id="payrollPinForm">
+<h2 id="payrollLockTitle">Unlock Payroll &amp; Cost Rates</h2>
+<label>PIN<input id="payrollPin" type="password" inputmode="numeric" autocomplete="off" required></label>
+<p id="pinMessage" role="alert"></p>
+<div class="cost-actions"><button id="cancelPin" type="button">Cancel</button><button type="submit">Unlock</button></div>
+</form>
+</dialog>
 <dialog id="costSettings" aria-labelledby="costTitle">
 <form id="costForm">
 <h2 id="costTitle">Payroll &amp; Cost Rates</h2>
 <p class="muted">Enter monthly payroll in LKR. Rates and payroll are saved in this browser.</p>
 <h3>Square Foot Cost</h3>
 <div class="cost-inputs">
-<section class="rate-box" data-rate="unload"><label>Unloading · LKR / sq ft<input name="unload" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
-<section class="rate-box" data-rate="load"><label>Loading · LKR / sq ft<input name="load" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
+<section class="rate-box" data-rate="unload"><label>Unloading · LKR / ft²<input name="unload" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
+<section class="rate-box" data-rate="load"><label>Loading · LKR / ft²<input name="load" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 </div>
 <h3>Monthly Payroll</h3>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
-<p class="muted">An employee’s paid hours override the default. OT rates are recorded for reference until actual OT hours are available.</p>
-<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Paid Hours / Month</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
+<p class="muted">Default paid hours apply to all employees. OT rates are recorded for reference until actual OT hours are available.</p>
+<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="addPay" type="button">Add Employee</button>
 <p id="costMessage" class="muted" role="status"></p>
 <div class="cost-actions"><button id="cancelCosts" type="button">Close</button></div>
@@ -382,7 +398,7 @@ function visitEstimate(visit){
   const hourlyRates=new Map();
   const personRows=roles.flatMap(([role,list])=>[...new Set(list.map(String))].map(epf=>{
     const person=payroll.get(epf);
-    const hours=person?.hours??costSettings.hours;
+    const hours=costSettings.hours;
     const hourly=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
       (person.basic+person.allowance)/hours:null;
     assigned.add(epf);
@@ -414,7 +430,7 @@ function renderVisitCost(visit,rows,direction){
   const operation=operationName(visit?.direction||direction);
   const rate=estimates[0]?.rate??(direction==='L'?costSettings.load:costSettings.unload);
   const tile=(label,value,note='')=>`<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`;
-  summary.innerHTML=tile(operation+' Area Cost',hasArea?money(areaCost):'—',knownAmount(rate)?money(rate)+' / sq ft':'Rate pending')+
+  summary.innerHTML=tile(operation+' Area Cost',hasArea?money(areaCost):'—',knownAmount(rate)?money(rate)+' / ft²':'Rate pending')+
     tile('Labour Cost',hasLabour?money(labour):'—','Estimated crew cost')+
     tile('Total Cost',hasLabour||hasArea?money(labour+areaCost):'—',complete?'Estimated total':'Known costs only');
   if(!visit)return;
@@ -431,14 +447,13 @@ function addPayrollRow(person={},editing=false){
     <td><input aria-label="Designation" data-field="designation" value="${esc(person.designation??'')}"${readonly}></td>
     <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
     <td><input aria-label="Fixed Allowance" type="number" min="0" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
-    <td><input aria-label="Paid Hours per Month" type="number" min="0.01" step="any" data-field="hours" value="${esc(person.hours??'')}"${readonly}></td>
     <td><output data-basic-hour>—</output></td>
     <td><input aria-label="OT per Hour" type="number" min="0" step="any" data-field="ot" value="${esc(person.ot??'')}"${readonly}></td>
     <td class="pay-actions"><button type="button" data-edit-pay ${editing?'disabled':''}>Edit</button><button type="button" data-save-pay ${editing?'':'disabled'}>Save</button><button type="button" data-remove-pay>Remove</button></td></tr>`);
 }
 function paintBasicHourly(row){
   const basic=amount(row.querySelector('[data-field="basic"]').value);
-  const hours=amount(row.querySelector('[data-field="hours"]').value)??costSettings.hours;
+  const hours=costSettings.hours;
   row.querySelector('[data-basic-hour]').textContent=knownAmount(basic)&&hours>0?fmt(basic/hours,2):'—';
 }
 function roleOrder(person){
@@ -464,6 +479,21 @@ function setEditing(box,fields,editing,editButton,saveButton){
   if(editing)fields[0].focus();
 }
 el('openCosts').addEventListener('click',()=>{
+  el('payrollPin').value='';
+  el('pinMessage').textContent='';
+  el('payrollLock').showModal();
+  el('payrollPin').focus();
+});
+el('cancelPin').addEventListener('click',()=>el('payrollLock').close());
+el('payrollPinForm').addEventListener('submit',event=>{
+  event.preventDefault();
+  if(el('payrollPin').value!=='445566'){
+    el('pinMessage').textContent='Incorrect PIN.';
+    el('payrollPin').select();
+    return;
+  }
+  el('payrollPin').value='';
+  el('payrollLock').close();
   for(const box of el('costForm').querySelectorAll('[data-rate]')){
     const input=box.querySelector('input');
     input.value=costSettings[box.dataset.rate]??'';
@@ -492,7 +522,7 @@ el('costForm').addEventListener('click',event=>{
   }
 });
 el('payrollRows').addEventListener('input',event=>{
-  if(event.target.matches('[data-field="basic"],[data-field="hours"]'))paintBasicHourly(event.target.closest('tr'));
+  if(event.target.matches('[data-field="basic"]'))paintBasicHourly(event.target.closest('tr'));
 });
 el('payrollRows').addEventListener('click',event=>{
   const button=event.target.closest('button');
@@ -518,7 +548,7 @@ el('payrollRows').addEventListener('click',event=>{
   }
   if(previous&&previous!==person.epf)removed.add(previous);
   removed.delete(person.epf);
-  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0,hours:amount(person.hours),ot:amount(person.ot)});
+  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0,ot:amount(person.ot)});
   if(saveCosts({...costSettings,payroll,removed:[...removed]})){
     row.dataset.epf=person.epf;
     setEditing(row,fields,false,'[data-edit-pay]','[data-save-pay]');
