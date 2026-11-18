@@ -6,6 +6,8 @@
 <style>
 :root{font-family:Inter,system-ui,sans-serif;color:#17283b;background:#eef2f6;--teal:#087972;--blue:#245eb2;--line:#d9e3ed}
 *{box-sizing:border-box}body{margin:0}header{background:#112741;color:white;border-bottom:5px solid #24b4a4;padding:28px max(5%,calc((100% - 1340px)/2))}header p{margin:0;color:#afdcd8;font-weight:700;letter-spacing:.12em;font-size:.78rem}h1{font-size:clamp(1.7rem,4vw,2.65rem);line-height:1.1;margin:.5rem 0}header small{color:#dce6f3}main{width:min(94%,1340px);margin:22px auto 40px}.panel,.card{background:white;border:1px solid var(--line);border-radius:12px;padding:17px}.filters,.cards,.charts{display:grid;gap:12px;margin-bottom:16px}.filters{grid-template-columns:repeat(auto-fit,minmax(143px,1fr));align-items:end}.cards{grid-template-columns:repeat(auto-fit,minmax(146px,1fr))}.charts{grid-template-columns:repeat(2,minmax(0,1fr))}.card span, label{font-size:.81rem;font-weight:700;color:#415972}.card strong{display:block;font-size:1.52rem;color:#102e50;margin-top:5px}.card small,.muted{color:#4c6177;font-size:.82rem}input,select,button{font:inherit;color:inherit;background:white;border:1px solid #9eafc1;border-radius:6px;padding:8px;width:100%}label input,label select{margin-top:5px}button{cursor:pointer;font-weight:650}button:hover{background:#eef5fd}h2{font-size:1.12rem;margin:0 0 8px}p{margin:0 0 10px}.scroll{overflow:auto}.plot{max-height:380px;overflow:auto}.barrow{display:grid;grid-template-columns:minmax(104px,1fr) minmax(80px,2fr) 68px;align-items:center;gap:8px;margin:9px 0;font-size:.78rem}.track{height:12px;background:#e9eef5;border-radius:5px;overflow:hidden}.bar{display:block;height:100%;background:var(--teal)}.bar.load{background:var(--blue)}table{border-collapse:collapse;width:100%;font-size:.84rem}td,th{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{background:#eaf1f8}.oplink{width:auto;padding:3px 8px;color:#154a87}.details{margin-top:15px}.crew{display:flex;gap:8px 24px;flex-wrap:wrap;margin:8px 0 15px}dialog{width:min(850px,94vw);max-height:88vh;border:1px solid var(--line);border-radius:12px;padding:20px;color:inherit}dialog::backdrop{background:#10253bb5}.close{width:auto;float:right}footer{margin-top:14px}.legend{font-size:.8rem;color:#3b546c}.legend b:first-child{color:var(--blue)}.legend b:last-child{color:var(--teal)}@media(max-width:720px){.charts{grid-template-columns:1fr}}
+
+.chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}.chart-group{margin:15px 0}.chart-group strong{display:block;font-size:.9rem}.barrow{grid-template-columns:82px minmax(40px,1fr) 75px}.bar{transition:width .25s}.chart-value{text-align:right}.crew-role{flex:1 1 155px;background:#edf3f9;border-radius:8px;padding:11px}.chip{display:inline-block;min-width:24px;text-align:center;background:#d6e6f8;border-radius:5px;padding:1px 6px;margin-left:5px}.vehicle-card{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.vehicle-card p{margin:5px 0}.vehicle-card h3{margin:0;font-size:1rem}.filters{grid-template-columns:repeat(auto-fit,minmax(154px,1fr))}input[readonly]{background:#edf2f7}.metric{white-space:nowrap}@media(max-width:720px){.chart-grid{grid-template-columns:1fr}}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -13,17 +15,18 @@
 <label>Reporting week<select id="week"></select></label>
 <label>From date<input type="date" id="from"></label>
 <label>To date<input type="date" id="to"></label>
+<label>Vehicle number<select id="vehicle"><option value="">All vehicles</option></select></label>
+<label>Container number<input id="container" type="text" readonly></label>
 <label>Operation<select id="direction"><option value="">All operations</option><option value="L">Loading</option><option value="U">Unloading</option></select></label>
 <label>Vehicle type<select id="kind"><option value="">All types</option><option>20GP</option><option>40HC</option><option>LRY</option></select></label>
-<label>Container number<input id="container" type="search" placeholder="Search container"></label>
 <button id="reset">Reset filters</button>
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
 <section id="cards" class="cards" aria-label="Operations summary"></section>
-<p class="legend">Chart colours <b>● Loading</b> <b>● Unloading</b></p>
-<section class="charts" id="charts"></section>
+<section id="vehicleDetails" class="panel" hidden></section>
+<section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
-<thead><tr><th>Dept Reg No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Unloading Location</th></tr></thead><tbody id="register"></tbody></table></div></section>
+<thead><tr><th>Dept Reg No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
 <footer class="muted">Source Dashboard File.xlsx · Sheet1 · Decathlon records only. Date filters use operation start dates. Estimated unloading area uses 1.7 CBM per 25 sq ft. The workbook has no unloading location, delay or employee name fields.</footer>
 </main>
 <dialog id="detail"><form method="dialog"><button class="close">Close</button></form><div id="detailBody"></div></dialog>
@@ -40,45 +43,84 @@ const iso = value => value.toISOString().slice(0,10);
 const addDays = (value,days) => {const d=date(value);d.setUTCDate(d.getUTCDate()+days);return iso(d);};
 const monday = value => addDays(value,-((date(value).getUTCDay()+6)%7));
 const weeks = [...new Set(operations.map(o=>monday(o.start.slice(0,10))))].sort().reverse();
-el('week').innerHTML = '<option value="">All dates / custom</option>'+weeks.map(w=>`<option value="${w}">${w} to ${addDays(w,6)}</option>`).join('');
+const weekNumber = mondayDate => {
+  const thursday=date(addDays(mondayDate,3));
+  const january=date(thursday.getUTCFullYear()+'-01-01');
+  return Math.ceil((((thursday-january)/86400000)+1)/7);
+};
+el('week').innerHTML = '<option value="">All weeks / custom</option>'+weeks.map(w=>
+  `<option value="${w}">Week ${weekNumber(w)} · ${w.slice(5)} to ${addDays(w,6).slice(5)} (${addDays(w,3).slice(0,4)})</option>`).join('');
 const sum = (rows,key) => rows.reduce((total,row)=>total+row[key],0);
 const card = (label,value,note) => `<article class="card"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`;
-function chart(rows, kind) {
-  const items=rows.filter(o=>o.kind===kind).sort((a,b)=>a.start.localeCompare(b.start));
-  const max=Math.max(1,...items.map(o=>o.minutes));
-  const bars=items.map(o=>`<div class="barrow" title="${esc(stamp(o.start))} → ${esc(stamp(o.end))}"><button class="oplink" data-reg="${o.reg}" title="${esc(o.container || o.vehicle)}">${esc(o.vehicle)} · ${o.reg}</button><div class="track"><span class="bar ${o.direction==='L'?'load':''}" style="width:${100*o.minutes/max}%"></span></div><strong>${duration(o.minutes)}</strong></div>`).join('');
-  return `<article class="panel"><h2>${kind==='LRY'?'Lorry':kind} Operation Durations</h2><p class="muted">${items.length} operations · longest ${items.length?duration(max):'—'}</p><div class="plot">${bars || '<p class="muted">No operations in this selection.</p>'}</div></article>`;
+const estimatedArea = cbm => cbm/1.7*25;
+const unique = (rows,key) => [...new Set(rows.map(o=>o[key]).filter(Boolean))];
+const vehicleName = o => o.vehicle.trim().toUpperCase();
+const average = rows => rows.length ? sum(rows,'minutes')/rows.length : 0;
+const crewDetails = o => `<div class="crew">${[['Tally Clerks',o.tally],['Supervisors',o.supervisors],['Operators',o.operators]].map(([label,ids])=>
+  `<div class="crew-role"><strong>${label}</strong><span class="chip">${ids.length}</span><br>EPF ${esc(ids.join(', ')||'Unrecorded')}</div>`).join('')}</div>`;
+function chart(rows, directions, measure) {
+  const counts=measure==='count';
+  const groups=['20GP','40HC','LRY'].map(kind=>({
+    kind,
+    series:directions.map(direction=>{
+      const items=rows.filter(o=>o.kind===kind && o.direction===direction);
+      return {direction,value:counts?items.length:average(items),hasData:items.length>0};
+    })
+  }));
+  const max=Math.max(1,...groups.flatMap(g=>g.series.map(s=>s.value)));
+  return `<article class="panel"><h2>${counts?'Operations by Vehicle Type':'Average Handling Time by Vehicle Type'}</h2>
+  <p class="muted">${counts?'Vehicle visits counted by Dept Reg No.':'Elapsed time from start to finish per operation'}</p>
+  ${groups.map(g=>`<div class="chart-group"><strong>${g.kind}</strong>${g.series.map(s=>
+    `<div class="barrow"><span>${operationName(s.direction)}</span><div class="track" aria-hidden="true"><span class="bar ${s.direction==='L'?'load':''}" style="width:${100*s.value/max}%"></span></div>
+    <b class="chart-value">${counts?s.value:s.hasData?duration(s.value):'—'}</b></div>`).join('')}</div>`).join('')}</article>`;
 }
 function render() {
-  const from=el('from').value,to=el('to').value,term=el('container').value.trim().toUpperCase();
+  const from=el('from').value,to=el('to').value;
+  const direction=el('direction').value,kind=el('kind').value;
   const invalid=from && to && from>to;
-  const rows=operations.filter(o=>{
+  const context=operations.filter(o=>{
     const day=o.start.slice(0,10);
     return !invalid && (!from||day>=from) && (!to||day<=to) &&
-      (!el('direction').value||o.direction===el('direction').value) &&
-      (!el('kind').value||o.kind===el('kind').value) && o.container.toUpperCase().includes(term);
-  }).sort((a,b)=>b.start.localeCompare(a.start));
-  const load=rows.filter(o=>o.direction==='L'), unload=rows.filter(o=>o.direction==='U');
-  const unique=items=>new Set(items.map(o=>o.vehicle.trim().toUpperCase())).size;
-  const cbm=sum(unload,'cbm');
-  el('range').textContent=invalid?'From date must be on or before To date.':`${rows.length} operations · ${from||'All start dates'}${to?' to '+to:''}`;
-  el('cards').innerHTML=[
-    card('Unloading Vehicles',unique(unload),`${unload.length} operations · ${duration(sum(unload,'minutes'))} total`),
-    card('Loading Vehicles',unique(load),`${load.length} operations · ${duration(sum(load,'minutes'))} total`),
-    card('Average Unloading',unload.length?duration(sum(unload,'minutes')/unload.length):'—','Elapsed time per operation'),
-    card('Average Loading',load.length?duration(sum(load,'minutes')/load.length):'—','Elapsed time per operation'),
-    card('Unloaded Volume',fmt(cbm,3)+' CBM',`${unload.reduce((n,o)=>n+o.cargo.length,0)} cargo lines`),
-    card('Estimated Area',fmt(cbm/1.7*25,2)+' sq ft','Unloaded volume equivalent'),
-  ].join('');
-  el('charts').innerHTML=['20GP','40HC','LRY'].map(k=>chart(rows,k)).join('')+
-    `<article class="panel"><h2>Unloading by Location</h2><p class="muted">Location codes are unavailable in the source workbook.</p><div class="scroll"><table><thead><tr><th>Location</th><th>CBM</th><th>Estimated sq ft</th></tr></thead><tbody>${unload.length?`<tr><td>Unrecorded</td><td>${fmt(cbm,3)}</td><td>${fmt(cbm/1.7*25,2)}</td></tr>`:'<tr><td colspan="3">No unloading operations in this selection.</td></tr>'}</tbody></table></div></article>`;
-  el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.reg}">${o.reg}</button></td>${[o.vehicle,o.container||'—',o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?'Unrecorded':'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="11">No matching operations.</td></tr>';
+      (!direction||o.direction===direction) && (!kind||o.kind===kind);
+  });
+  const current=el('vehicle').value;
+  const vehicles=[...new Set(context.map(vehicleName))].sort();
+  el('vehicle').innerHTML='<option value="">All vehicles</option>'+vehicles.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const selected=vehicles.includes(current)?current:'';
+  el('vehicle').value=selected;
+  const rows=context.filter(o=>!selected||vehicleName(o)===selected).sort((a,b)=>b.start.localeCompare(a.start));
+  el('container').value=selected?unique(rows,'container').join(', '):'';
+  const directions=direction?[direction]:['L','U'];
+  const dates=operations.map(o=>o.start.slice(0,10)).sort();
+  el('range').textContent=invalid?'From date must be on or before To date.':`${rows.length} operations · ${from||dates[0]} to ${to||dates.at(-1)} · Sri Lanka time`;
+  el('cards').innerHTML=directions.flatMap(d=>{
+    const items=rows.filter(o=>o.direction===d);
+    const label=operationName(d);
+    const cbm=sum(items,'cbm');
+    return [
+      card(label+' Operations',items.length,`${new Set(items.map(vehicleName)).size} distinct vehicle numbers`),
+      card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed'),
+      ...(d==='U'?[
+        card('Unloaded Volume',fmt(cbm,3)+' CBM','Total unloading cargo volume'),
+        card('Estimated Unloading Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft'),
+      ]:[]),
+    ];
+  }).join('');
+  const details=el('vehicleDetails');
+  details.hidden=!selected;
+  details.innerHTML=selected?`<h2>Vehicle Details · ${esc(selected)}</h2>${rows.map(o=>`<article class="vehicle-card">
+    <h3>${operationName(o.direction)} · ${esc(o.kind)} · Reg ${o.reg}${o.container?' · '+esc(o.container):''}</h3>
+    <p>${esc(stamp(o.start))} → ${esc(stamp(o.end))} · <strong>${duration(o.minutes)}</strong> · ${o.heads} heads</p>
+    <p>${fmt(o.cbm,3)} CBM${o.direction==='U'?' · '+fmt(estimatedArea(o.cbm),2)+' estimated sq ft':''}</p>
+    ${crewDetails(o)}</article>`).join('')}`:'';
+  el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
+  el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.reg}">${o.reg}</button></td>${[o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="11">No matching operations.</td></tr>';
 }
 function showDetails(reg) {
   const o=operations.find(row=>String(row.reg)===reg);
   el('detailBody').innerHTML=`<h2>${operationName(o.direction)} · ${esc(o.vehicle)} · Reg ${o.reg}</h2>
   <p class="muted">${esc(o.container || o.kind)} · ${stamp(o.start)} → ${stamp(o.end)} · ${duration(o.minutes)} · ${o.heads} heads</p>
-  <div class="crew">${[['Operator EPF',o.operators],['Tally Clerk EPF',o.tally],['Supervisor EPF',o.supervisors]].map(([label,ids])=>`<div><strong>${label}</strong><br>${esc(ids.join(', ')||'Unrecorded')}</div>`).join('')}</div>
+  ${crewDetails(o)}
   <h2>Cargo Lines · ${o.cargo.length}</h2><div class="scroll"><table><thead><tr><th>Tally No.</th><th>Reference</th><th>GRN/GDN</th><th>PCS</th><th>CTN</th><th>CBM</th></tr></thead><tbody>${o.cargo.map(c=>`<tr>${[c.tally,c.reference,c.document,fmt(c.pcs),fmt(c.cartons),fmt(c.cbm,3)].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   el('detail').showModal();
 }
@@ -92,12 +134,12 @@ el('week').addEventListener('change',()=>{
   el('to').value=week?addDays(week,6):'';
   render();
 });
-for(const id of ['from','to','direction','kind','container'])el(id).addEventListener('input',()=>{
+for(const id of ['from','to','direction','kind','vehicle'])el(id).addEventListener('input',()=>{
   if(id==='from'||id==='to')el('week').value='';
   render();
 });
 el('reset').addEventListener('click',()=>{
-  for(const id of ['week','from','to','direction','kind','container'])el(id).value='';
+  for(const id of ['week','from','to','direction','kind','vehicle'])el(id).value='';
   render();
 });
 render();
