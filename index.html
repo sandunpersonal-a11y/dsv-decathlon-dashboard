@@ -57,6 +57,17 @@
 .crew-strip-row .locked{min-height:25px;padding:4px 7px}
 .crew-strip-row .card{padding:5px 8px}
 .crew-strip-row .card strong{font-size:1rem}
+
+#cards{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;align-items:stretch}
+.kpi-group{flex:1 0 auto;padding:5px 6px 6px;border-radius:8px;border:1px solid var(--kpi-border);background:var(--kpi-panel);color:var(--kpi-ink)}
+.kpi-group.unloading{--kpi-border:#b8ded5;--kpi-panel:#e7f5f1;--kpi-ink:#146359}
+.kpi-group.loading{--kpi-border:#c6d9f2;--kpi-panel:#eaf2fc;--kpi-ink:#254f86}
+.kpi-group h2{font-size:.72rem;margin:0 0 4px}
+.kpi-row{display:flex;gap:4px}
+.kpi-group .card{flex:1;padding:4px 6px;background:#fff;border:1px solid var(--kpi-border);border-left:2px solid var(--kpi-ink);border-radius:5px;white-space:nowrap}
+.kpi-group .card span,.kpi-group .card small{font-size:.62rem}
+.kpi-group .card strong{font-size:.98rem;margin:1px 0;color:var(--kpi-ink)}
+.kpi-group .card .ui-icon{width:11px;height:11px;margin-right:3px;color:var(--kpi-ink)}
 </style>
 <header><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -139,28 +150,36 @@ function chart(rows, directions, measure) {
 let from='',to='';
 function render() {
   el('rangeText').textContent=from&&to?`${from} – ${to}`:'All dates';
-  const direction=el('direction').value,kind=el('kind').value;
+  const direction=el('direction').value;
   const invalid=from && to && from>to;
-  const context=operations.filter(o=>{
+  const periodRows=operations.filter(o=>{
     const day=o.start.slice(0,10);
     return !invalid && (!from||day>=from) && (!to||day<=to) &&
-      (!direction||o.direction===direction) && (!kind||o.kind===kind);
+      (!direction||o.direction===direction);
   });
+  const kindFilter=el('kind');
+  const previousKind=kindFilter.value;
+  const kinds=[...new Set(periodRows.map(o=>o.kind))].sort();
+  kindFilter.innerHTML='<option value="">All types</option>'+kinds.map(kind=>`<option value="${esc(kind)}">${esc(kind)}</option>`).join('');
+  const kind=kinds.includes(previousKind)?previousKind:'';
+  kindFilter.value=kind;
+  kindFilter.disabled=kinds.length===0;
+  const context=periodRows.filter(o=>!kind||o.kind===kind);
   const current=el('vehicle').value;
   const visits=[...context].sort((a,b)=>a.vehicle.localeCompare(b.vehicle)||b.start.localeCompare(a.start));
   el('vehicle').innerHTML='<option value="">All vehicle visits</option>'+visits.map(o=>`<option value="${o.id}">${esc(visitLabel(o))}</option>`).join('');
   const selected=visits.find(o=>o.id===current);
   el('vehicle').value=selected?selected.id:'';
-  const rows=(selected?[selected]:context).sort((a,b)=>b.start.localeCompare(a.start));
+  const rows=(selected?[selected]:context).sort((a,b)=>b.direction.localeCompare(a.direction)||b.start.localeCompare(a.start));
   el('container').textContent=selected?.container || '';
-  const directions=selected?[selected.direction]:direction?[direction]:['L','U'];
+  const directions=selected?[selected.direction]:direction?[direction]:['U','L'];
   const dates=operations.map(o=>o.start.slice(0,10)).sort();
   el('range').textContent=invalid?'From date must be on or before To date.':`${rows.length} operations · ${from||dates[0]} to ${to||dates.at(-1)} · Sri Lanka time`;
-  el('cards').innerHTML=directions.flatMap(d=>{
+  el('cards').innerHTML=directions.map(d=>{
     const items=rows.filter(o=>o.direction===d);
     const label=operationName(d);
     const cbm=sum(items,'cbm');
-    return [
+    const metrics=[
       ...(d==='U'?[card('Unloading Operations',items.length,`${new Set(items.flatMap(o=>o.cargo.map(c=>c.document))).size} GRN documents`,'truck',d)]:[]),
       ...(!selected?[card('Average '+label+' Time',items.length?duration(average(items)):'—',duration(sum(items,'minutes'))+' total elapsed','clock',d)]:[]),
       ...(d==='U'?[
@@ -171,6 +190,7 @@ function render() {
         card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
+    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2><div class="kpi-row">${metrics.join('')}</div></section>`;
   }).join('');
   const strip=el('crewStrip');
   strip.hidden=!selected;
