@@ -101,6 +101,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .rate-box button,.pay-actions button{width:auto;padding:4px 7px;margin:4px 3px 0 0;font-size:.72rem}
 .rate-box input[readonly],#payrollRows input[readonly]{background:#edf3f8}button:disabled{opacity:.5;cursor:default}
 [data-save-pay]:enabled,[data-save-rate]:enabled{background:#155f79;color:white}
+#costSettings{width:min(1120px,94vw)}
 </style>
 <header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -126,13 +127,15 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 <form id="costForm">
 <h2 id="costTitle">Payroll &amp; Cost Rates</h2>
 <p class="muted">Enter monthly payroll in LKR. Rates and payroll are saved in this browser.</p>
+<h3>Square Foot Cost</h3>
 <div class="cost-inputs">
-<section class="rate-box" data-rate="hours"><label>Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 <section class="rate-box" data-rate="unload"><label>Unloading · LKR / sq ft<input name="unload" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 <section class="rate-box" data-rate="load"><label>Loading · LKR / sq ft<input name="load" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 </div>
 <h3>Monthly Payroll</h3>
-<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
+<section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
+<p class="muted">An employee’s paid hours override the default. OT rates are recorded for reference until actual OT hours are available.</p>
+<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Paid Hours / Month</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="addPay" type="button">Add Employee</button>
 <p id="costMessage" class="muted" role="status"></p>
 <div class="cost-actions"><button id="cancelCosts" type="button">Close</button></div>
@@ -379,8 +382,9 @@ function visitEstimate(visit){
   const hourlyRates=new Map();
   const personRows=roles.flatMap(([role,list])=>[...new Set(list.map(String))].map(epf=>{
     const person=payroll.get(epf);
-    const hourly=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&costSettings.hours>0?
-      (person.basic+person.allowance)/costSettings.hours:null;
+    const hours=person?.hours??costSettings.hours;
+    const hourly=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
+      (person.basic+person.allowance)/hours:null;
     assigned.add(epf);
     if(hourly!==null)hourlyRates.set(epf,hourly);
     return `<tr><td>${role}</td><td>${esc(epf)}</td><td>${esc(person?.designation||'—')}</td><td>${fmt(durationHours,2)}</td><td>${hourly===null?'—':money(hourly)}</td><td>${hourly===null?'Payroll or hours missing':money(hourly*durationHours)}</td></tr>`;
@@ -427,7 +431,19 @@ function addPayrollRow(person={},editing=false){
     <td><input aria-label="Designation" data-field="designation" value="${esc(person.designation??'')}"${readonly}></td>
     <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
     <td><input aria-label="Fixed Allowance" type="number" min="0" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
+    <td><input aria-label="Paid Hours per Month" type="number" min="0.01" step="any" data-field="hours" value="${esc(person.hours??'')}"${readonly}></td>
+    <td><output data-basic-hour>—</output></td>
+    <td><input aria-label="OT per Hour" type="number" min="0" step="any" data-field="ot" value="${esc(person.ot??'')}"${readonly}></td>
     <td class="pay-actions"><button type="button" data-edit-pay ${editing?'disabled':''}>Edit</button><button type="button" data-save-pay ${editing?'':'disabled'}>Save</button><button type="button" data-remove-pay>Remove</button></td></tr>`);
+}
+function paintBasicHourly(row){
+  const basic=amount(row.querySelector('[data-field="basic"]').value);
+  const hours=amount(row.querySelector('[data-field="hours"]').value)??costSettings.hours;
+  row.querySelector('[data-basic-hour]').textContent=knownAmount(basic)&&hours>0?fmt(basic/hours,2):'—';
+}
+function roleOrder(person){
+  const rank=crewRoles.findIndex(([role])=>person.designation.toLowerCase().includes(role.toLowerCase()));
+  return rank<0?crewRoles.length:rank;
 }
 function saveCosts(updated){
   try{
@@ -454,7 +470,8 @@ el('openCosts').addEventListener('click',()=>{
     setEditing(box,[input],false,'[data-edit-rate]','[data-save-rate]');
   }
   el('payrollRows').innerHTML='';
-  for(const person of costSettings.payroll)addPayrollRow(person);
+  for(const person of [...costSettings.payroll].sort((a,b)=>roleOrder(a)-roleOrder(b)||a.epf.localeCompare(b.epf,undefined,{numeric:true})))addPayrollRow(person);
+  for(const row of el('payrollRows').rows)paintBasicHourly(row);
   el('costMessage').textContent='';
   el('costSettings').showModal();
 });
@@ -471,7 +488,11 @@ el('costForm').addEventListener('click',event=>{
   if(button.matches('[data-edit-rate]'))setEditing(box,[input],true,'[data-edit-rate]','[data-save-rate]');
   if(button.matches('[data-save-rate]')&&input.reportValidity()&&saveCosts({...costSettings,[key]:amount(input.value)})){
     setEditing(box,[input],false,'[data-edit-rate]','[data-save-rate]');
+    if(key==='hours')for(const row of el('payrollRows').rows)paintBasicHourly(row);
   }
+});
+el('payrollRows').addEventListener('input',event=>{
+  if(event.target.matches('[data-field="basic"],[data-field="hours"]'))paintBasicHourly(event.target.closest('tr'));
 });
 el('payrollRows').addEventListener('click',event=>{
   const button=event.target.closest('button');
@@ -497,7 +518,7 @@ el('payrollRows').addEventListener('click',event=>{
   }
   if(previous&&previous!==person.epf)removed.add(previous);
   removed.delete(person.epf);
-  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0});
+  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0,hours:amount(person.hours),ot:amount(person.ot)});
   if(saveCosts({...costSettings,payroll,removed:[...removed]})){
     row.dataset.epf=person.epf;
     setEditing(row,fields,false,'[data-edit-pay]','[data-save-pay]');
