@@ -110,6 +110,21 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .rate-box[data-rate="hours"] button{margin:0}
 #costSettings th,#costSettings td{padding:5px 6px;font-size:.76rem}
 #payrollRows input{min-width:65px}
+
+.visit-overview{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
+.visit-overview>*{min-width:0}
+#crewStrip{width:100%;max-width:100%}
+#costSummary:not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+#costSummary article{background:#fff2e2;border-color:#efc495;color:#783d10;overflow-wrap:anywhere}
+#costSummary article:last-child{background:#aa410b;border-color:#aa410b;color:white}
+#costSummary strong{font-size:clamp(.74rem,1.15vw,1rem);font-variant-numeric:tabular-nums}
+.working-hours{margin-top:6px;padding-top:5px;border-top:1px solid #d7e5f1}
+.working-hours h3{margin:0 0 4px;font-size:.75rem}.working-hours h3 small{font-weight:400;margin-left:4px;color:#415972}
+.working-hours>div{display:flex;flex-wrap:wrap;gap:4px}
+.working-hours span{background:#edf3f9;border:1px solid #d7e5f1;padding:3px 7px;border-radius:5px;font-size:.67rem}
+.working-hours strong{display:block;font-size:.78rem}
+@media(min-width:850px){.visit-overview:has(#crewStrip:not([hidden])):has(#costSummary:not([hidden])){grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
+@media(max-width:849px){#costSummary{grid-row:1}}
 </style>
 <header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment</small></header>
 <main>
@@ -171,6 +186,25 @@ const el = id => document.getElementById(id);
 const fmt = (n, digits=0) => n.toLocaleString('en-GB',{maximumFractionDigits:digits});
 const esc = value => String(value ?? '—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const duration = n => { const m=Math.round(n); return m>=60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`; };
+function splitWorkingMinutes(start,end){
+  // Parse the workbook's local wall-clock timestamps without browser timezone conversion.
+  const first=Date.parse(start+'Z'), last=Date.parse(end+'Z');
+  const minute=60_000, day=1440*minute;
+  if(!Number.isFinite(first)||!Number.isFinite(last)||last<first)return null;
+  let regular=0;
+  for(let date=Math.floor(first/day)*day;date<last;date+=day){
+    regular+=Math.max(0,Math.min(last,date+17*60*minute)-Math.max(first,date+8*60*minute));
+  }
+  return {day:regular/minute,ot:(last-first-regular)/minute,total:(last-first)/minute};
+}
+function workingHours(visit){
+  const hours=splitWorkingMinutes(visit.start,visit.end);
+  const metrics=[['Day Hours',hours?.day],['OT Hours',hours?.ot],['Total Hours',hours?.total]];
+  return `<section class="working-hours" aria-label="Working hours">
+    <h3>Working Hours <small>Day 08:00–17:00</small></h3>
+    <div>${metrics.map(([label,value])=>`<span>${label}<strong>${value===undefined?'—':duration(value)}</strong></span>`).join('')}</div>
+  </section>`;
+}
 const stamp = value => value.replace('T',' ');
 const operationName = direction => direction==='L' ? 'Loading' : 'Unloading';
 const date = value => new Date(value+'T00:00:00Z');
@@ -279,7 +313,7 @@ function render() {
   strip.innerHTML=selected?rows.map(o=>{
     const fields=[['Head Count',o.heads],['Supervisor EPF',o.supervisors.join(', '),o.supervisors.length],['Tally Clerk EPF',o.tally.join(', '),o.tally.length],['Operator EPF',o.operators.join(', '),o.operators.length]];
     return `<div class="crew-strip-row">${card(operationName(o.direction)+' Time',duration(o.minutes),'','clock',o.direction)}${fields.map(([label,value,count],i)=>
-      `<div class="filter-field"><span id="crew-${o.reg}-${i}">${label}${count===undefined?'':`<b class="chip">${count}</b>`}</span><output class="locked" aria-labelledby="crew-${o.reg}-${i}">${esc(value)}</output></div>`).join('')}</div>`;
+      `<div class="filter-field"><span id="crew-${o.reg}-${i}">${label}${count===undefined?'':`<b class="chip">${count}</b>`}</span><output class="locked" aria-labelledby="crew-${o.reg}-${i}">${esc(value)}</output></div>`).join('')}</div>${workingHours(o)}`;
 
   }).join(''):'';
   renderVisitCost(selected,rows,direction);
