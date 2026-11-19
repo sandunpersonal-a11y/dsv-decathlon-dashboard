@@ -196,12 +196,35 @@ button:not(:disabled):active{transform:translateY(1px);box-shadow:inset 0 1px 2p
 #visitCostSummary article{padding:5px 6px}
 @media(max-width:760px){.visit-cost-layout{grid-template-columns:minmax(0,1fr)}}
 .kpi-group .card>strong{font-size:clamp(.71rem,1.1vw,.92rem);white-space:nowrap}
+
+.header-scope{display:flex;gap:5px;align-items:end}.header-scope label{color:#e1edf6;font-size:.65rem}.header-scope select{margin-top:2px;padding:4px 5px;color:#153a58;font-size:.76rem;min-width:61px}
+.operations-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:10px;align-items:start}
+#cards,#timelines{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.operation-timeline{padding:8px 10px}.operation-timeline h2,.average-chart h2{font-size:.92rem}.operation-timeline p,.time-labels{font-size:.72rem}
+.time-band{display:flex;height:8px;background:#e5edf3;border-radius:6px;overflow:hidden}.time-band i:first-child{background:#337ea1}.time-band i:last-child{background:#df9c55}
+.time-labels,.crew-counts{display:flex;flex-wrap:wrap;gap:5px 10px;margin:5px 0}
+.timeline-costs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,105px),1fr));gap:4px}
+.timeline-costs article{background:#fbf3e9;border:1px solid #e8d2ba;border-radius:6px;padding:4px 6px;font-size:.66rem;min-width:0;overflow-wrap:anywhere}
+.timeline-costs article:last-child{background:#efdcc6;border-color:#d2ae86}.timeline-costs strong{display:block;font-size:.82rem;margin:1px 0}.timeline-costs small{font-size:.62rem}
+.average-row{display:grid;grid-template-columns:36px minmax(0,1fr) 59px 52px;gap:6px;align-items:center;margin:8px 0;font-size:.74rem}.average-row i{display:block;height:100%;background:#168777}.average-chart.loading .average-row i{background:#3570ac}.average-row small{text-align:right}
+.visit-dates,.crew-counts{font-size:.72rem}.visit-dates{margin:4px 0;color:#465e74}
+.crew-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:5px;perspective:650px}
+.crew-mini{background:#f3f7fc;border:1px solid #d5e3ef;border-radius:6px;padding:4px 6px;font-size:.67rem;transform-origin:left;animation:crew-open 300ms ease-out both}
+.crew-mini>div{display:flex;justify-content:space-between;gap:4px;margin:2px 0}.crew-mini strong{color:#174669}
+.crew-counts span{background:#eaf2f9;border-radius:4px;padding:3px 5px}
+.timeline-costs strong{animation:cost-reveal 300ms ease-out both}
+@keyframes crew-open{from{transform:rotateY(-22deg);opacity:.15}to{transform:rotateY(0);opacity:1}}
+@keyframes cost-reveal{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.crew-mini,.timeline-costs strong{animation:none}}
+@media(max-width:900px){.operations-layout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:550px){.job-header-actions{float:none;justify-content:space-between;margin:0 0 7px}}
+.filters{grid-template-columns:repeat(auto-fit,minmax(min(100%,133px),1fr))}
+@media(min-width:1060px){.filters{grid-template-columns:88px 145px minmax(85px,1fr) minmax(85px,1fr) minmax(110px,1.35fr) minmax(95px,1fr) 88px}}
 </style>
-<header><div class="job-header-actions"><span id="activeJobBadge"></span><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
+<header><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
+<label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
-<label>Customer<select id="customer"></select></label>
-<label>Job Number<select id="job"></select></label>
 <label>Week<select id="week"></select></label>
 <div class="filter-field"><span id="rangeLabel">Date Range</span><button id="dateRange" aria-haspopup="dialog" aria-labelledby="rangeLabel dateRange"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg><span id="rangeText">All dates</span></button></div>
 <label>Operation<select id="direction"><option value="">All operations</option><option value="L">Loading</option><option value="U">Unloading</option></select></label>
@@ -211,8 +234,10 @@ button:not(:disabled):active{transform:translateY(1px);box-shadow:inset 0 1px 2p
 <button id="reset"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg>Reset filters</button>
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
-<section id="costSummary" aria-label="Operation cost summary" hidden></section>
+<div class="operations-layout">
 <section id="cards" class="cards" aria-label="Operations summary"></section>
+<aside id="timelines" aria-label="Operation timelines and costs"></aside>
+</div>
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
 <thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
@@ -278,14 +303,6 @@ function splitWorkingMinutes(start,end){
   }
   return {day:regular/minute,ot:(last-first-regular)/minute,total:(last-first)/minute};
 }
-function workingHours(visit){
-  const hours=splitWorkingMinutes(visit.start,visit.end);
-  const metrics=[['Day Hours',hours?.day],['OT Hours',hours?.ot],['Total Hours',hours?.total]].filter(([label,value])=>label==='Total Hours'||value>0);
-  return `<section class="working-hours" aria-label="Working hours">
-    <h3>Working Hours <small>Day 08:00–17:00</small></h3>
-    <div>${metrics.map(([label,value])=>`<span>${label}<strong>${value===undefined?'—':duration(value)}</strong></span>`).join('')}</div>
-  </section>`;
-}
 const stamp = value => value.replace('T',' ');
 const operationName = direction => direction==='L' ? 'Loading' : 'Unloading';
 const date = value => new Date(value+'T00:00:00Z');
@@ -329,22 +346,26 @@ const visitLabel = o => {
 const average = rows => rows.length ? sum(rows,'minutes')/rows.length : 0;
 const crewDetails = o => `<div class="crew">${[['Tally Clerks',o.tally],['Supervisors',o.supervisors],['Operators',o.operators]].map(([label,ids])=>
   `<div class="crew-role"><strong>${label}</strong><span class="chip">${ids.length}</span><br>EPF ${esc(ids.join(', ')||'Unrecorded')}</div>`).join('')}</div>`;
-function chart(rows, directions, measure) {
-  const counts=measure==='count';
-  const groups=['20GP','40HC','LRY'].map(kind=>({
-    kind,
-    series:directions.map(direction=>{
-      const items=rows.filter(o=>o.kind===kind && o.direction===direction);
-      const times=items.map(o=>o.minutes);
-      return {direction,value:counts?items.length:average(items),times};
-    })
-  }));
-  const max=Math.max(1,...groups.flatMap(g=>g.series.map(s=>s.value)));
-  return `<article class="panel"><h2>${counts?'Operations by Vehicle Type':'Handling Time by Vehicle Type'}</h2>
-  <p class="muted">${counts?'Vehicle visits counted by Dept Reg No.':'Elapsed time from start to finish per operation'}</p>
-  ${groups.map(g=>`<div class="chart-group"><strong>${g.kind}</strong>${g.series.map(s=>
-    `<div class="barrow"><span>${operationName(s.direction)}</span><div class="track" aria-hidden="true"><span class="bar ${s.direction==='L'?'load':''}" style="width:${100*s.value/max}%"></span></div>
-    <b class="chart-value">${counts?s.value:s.times.length?duration(s.value):'—'}</b></div>${!counts&&s.times.length?`<small class="time-note">Shortest ${duration(Math.min(...s.times))} · Longest ${duration(Math.max(...s.times))} · ${s.times.length} operations</small>`:''}`).join('')}</div>`).join('')}</article>`;
+function averageTimeChart(rows,direction,max){
+  const groups=['LRY','20GP','40HC'].map(kind=>{
+    const visits=rows.filter(o=>o.direction===direction&&o.kind===kind);
+    return {kind,visits:visits.length,minutes:average(visits)};
+  });
+  return `<article class="panel average-chart ${direction==='U'?'unloading':'loading'}">
+    <h2>Average ${operationName(direction)} Time</h2>
+    ${groups.map(g=>`<div class="average-row"><strong>${g.kind}</strong><div class="track" aria-hidden="true"><i style="width:${100*g.minutes/max}%"></i></div><b>${g.visits?duration(g.minutes):'—'}</b><small>${g.visits} visits</small></div>`).join('')}
+  </article>`;
+}
+function timelineCard(rows,direction,selected){
+  const times=rows.map(o=>splitWorkingMinutes(o.start,o.end)).filter(Boolean);
+  const day=sum(times,'day'),ot=sum(times,'ot'),total=day+ot;
+  return `<article class="panel operation-timeline">
+    <h2>${operationName(direction)} Timeline</h2>
+    <p class="muted">${selected?`${esc(stamp(selected.start))} → ${esc(stamp(selected.end))}`:`${rows.length} visits · combined elapsed time`}</p>
+    ${total?`<div class="time-band" aria-hidden="true"><i style="width:${100*day/total}%"></i><i style="width:${100*ot/total}%"></i></div>`:''}
+    <div class="time-labels">${day?`<span>Day <b>${duration(day)}</b></span>`:''}${ot?`<span>OT <b>${duration(ot)}</b></span>`:''}<span>Total <b>${times.length?duration(total):'—'}</b></span></div>
+    <div class="timeline-costs" id="cost-${direction}" aria-label="${operationName(direction)} costs"></div>
+  </article>`;
 }
 function staffing(rows) {
   const types=[...new Set(rows.map(o=>o.kind))].sort();
@@ -361,7 +382,6 @@ function staffing(rows) {
 }
 let from='',to='';
 function render() {
-  el('activeJobBadge').textContent=el('customer').value+' / JOB '+el('job').value;
   el('rangeText').textContent=from&&to?`${from} – ${to}`:'All dates';
   const direction=el('direction').value;
   const invalid=from && to && from>to;
@@ -403,10 +423,12 @@ function render() {
         card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
-    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2>${selected?'<div class="visit-cost-layout"><section id="visitCost" class="panel" aria-label="Selected visit time and crew costs"></section><aside id="visitCostSummary" aria-label="Selected visit cost totals"></aside></div>':''}<div class="kpi-row">${metrics.join('')}</div>${selected?'':staffing(items)}</section>`;
+    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2>${selected?'<section id="visitCost" class="panel" aria-label="Selected visit crew costs"></section>':''}<div class="kpi-row">${metrics.join('')}</div>${selected?'':staffing(items)}</section>`;
   }).join('');
-  renderVisitCost(selected,rows,direction);
-  el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
+  el('timelines').innerHTML=directions.map(d=>timelineCard(rows.filter(o=>o.direction===d),d,selected)).join('');
+  for(const d of directions)renderVisitCost(selected,rows.filter(o=>o.direction===d),d);
+  const chartMax=Math.max(1,...['U','L'].flatMap(d=>['LRY','20GP','40HC'].map(kind=>average(context.filter(o=>o.direction===d&&o.kind===kind)))));
+  el('charts').innerHTML=['U','L'].map(d=>averageTimeChart(context,d,chartMax)).join('');
   el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.id}">${o.reg}</button></td>${[o.cargo.length===1?o.cargo[0].document:`${o.cargo[0].document} +${o.cargo.length-1}`,o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12">No matching operations.</td></tr>';
 }
 function showDetails(reg) {
@@ -577,7 +599,10 @@ function visitEstimate(visit){
     const total=(dayCost??0)+(otCost??0);
     assigned.add(epf);
     costs.set(epf,{priced,complete,total});
-    return `<tr><td>${role}</td><td>${esc(epf)}</td>${showDay?`<td>${duration(time.day)}</td><td>${showCost(dayCost)}</td>`:''}${showOT?`<td>${duration(time.ot)}</td><td>${showCost(otCost)}</td>`:''}<td>${priced?money(total):'—'}${priced&&!complete?' · partial':''}</td></tr>`;
+    return `<article class="crew-mini"><div><b>${role}</b><span>EPF ${esc(epf)}</span></div>
+      ${showDay?`<div><span>Day ${duration(time.day)}</span><strong>${showCost(dayCost)}</strong></div>`:''}
+      ${showOT?`<div><span>OT ${duration(time.ot)}</span><strong>${showCost(otCost)}</strong></div>`:''}
+      <div><span>${priced&&!complete?'Known cost':'Labour cost'}</span><strong>${priced?money(total):'—'}</strong></div></article>`;
   })).join('');
   const recordedCosts=[...costs.values()];
   const labour=recordedCosts.reduce((total,entry)=>total+entry.total,0);
@@ -593,8 +618,7 @@ function visitEstimate(visit){
 }
 function renderVisitCost(visit,rows,direction){
   const panel=el('visitCost');
-  el('costSummary').hidden=Boolean(visit)||!direction;
-  const summary=el(visit?'visitCostSummary':'costSummary');
+  const summary=el('cost-'+direction);
   summary.innerHTML='';
 
   if(!visit&&!direction)return;
@@ -620,9 +644,10 @@ function renderVisitCost(visit,rows,direction){
   }).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<div class="visit-time-heading">${card(operationName(visit.direction)+' Time',duration(visit.minutes),'','clock',visit.direction)}<span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
-    ${workingHours(visit)}
-    ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
-    ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
+    <p class="visit-dates">${esc(stamp(visit.start))} → ${esc(stamp(visit.end))}</p>
+    ${personRows?`<div class="crew-mini-grid">${personRows}</div>`:'<p class="muted">No matching crew EPF records.</p>'}
+    <div class="crew-counts">${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
+    ${missing||crewGap?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
     ${chargeDetails?`<div class="cost-totals">${chargeDetails}</div>`:''}
     ${knownAmount(charges.vas)&&costSettings.vasDetails?`<p class="muted vas-notes">VAS / Rework details · ${esc(costSettings.vasDetails)}</p>`:''}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
