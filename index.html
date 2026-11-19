@@ -333,24 +333,57 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
   .operation-pair .staffing{margin-block:3px}
 }
  
-.dashboard-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 12px;padding-block:6px 4px}
+.dashboard-header{
+  position:relative;isolation:isolate;overflow:hidden;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:6px 12px;padding:7px clamp(8px,1.15vw,20px) 6px;border-bottom-width:3px;
+}
+.dashboard-header::before{
+  content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 20%,#72c9ed16 50%,transparent 80%);
+  animation:header-light 14s ease-in-out infinite;
+}
+@keyframes header-light{
+  0%{transform:translateX(-100%)}
+  58%,100%{transform:translateX(100%)}
+}
+@media(prefers-reduced-motion:reduce){.dashboard-header::before{animation:none;opacity:0}}
 .dashboard-title{grid-column:1;grid-row:1;min-width:0}
 .dashboard-title :is(h1,p){margin:0}
 .dashboard-header .job-header-actions{grid-column:2;grid-row:1;float:none;margin:0}
-.dashboard-header .filters{grid-column:1/-1;margin:0;padding:4px 6px;box-shadow:none}
+.dashboard-header .filters{
+  grid-column:1/-1;grid-row:2;width:100%;max-width:none;margin:0;padding:0;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:5px 7px;
+  align-items:end;background:transparent;border:0;border-radius:0;box-shadow:none;
+}
+@media(min-width:980px){
+  .dashboard-header .filters{
+    grid-template-columns:minmax(135px,1fr) minmax(84px,.65fr) minmax(168px,1.25fr)
+      minmax(104px,1fr) minmax(92px,.9fr) minmax(132px,1.4fr) minmax(110px,1fr) auto;
+  }
+}
+.dashboard-header .filters label,.dashboard-header .filters .filter-field>span{
+  color:#d7e6f3;font-size:.72rem;line-height:1.15;margin-bottom:0;
+}
+.dashboard-header .filters :is(select,input[type="month"],button,.locked){
+  width:100%;min-height:29px;height:29px;margin:2px 0 0;padding:3px 7px;
+  color:#f2f8ff;background:#183b58;border:1px solid #7694af8f;border-radius:5px;
+  box-shadow:none;font-size:.73rem;font-weight:600;color-scheme:dark;
+}
+.dashboard-header .filters button{white-space:nowrap;background:#234b69}
+.dashboard-header .filters button:hover{background:#315f80}
+.dashboard-header .filters .locked{display:flex;align-items:center;background:#142f49}
+.dashboard-header .filters .ui-icon{color:#b8e2f6}
+.dashboard-header .filters :focus-visible{outline:2px solid #a6e7ff;outline-offset:1px}
 .dashboard-header + main{padding-top:6px}
 .crew-compact caption{text-align:left;font-size:.68rem;font-weight:650;padding:2px 4px;color:inherit}
 .staff-count{font-size:.58rem;margin-inline-start:3px}
 #operatingCostSection .charge-fields{grid-template-columns:repeat(auto-fit,minmax(95px,1fr))}
-@media(min-width:1460px){
-  .dashboard-header{grid-template-columns:minmax(182px,.8fr) minmax(0,4.2fr) auto}
-  .dashboard-header .filters{grid-column:2;grid-row:1;grid-template-columns:minmax(112px,1.05fr) minmax(66px,.62fr) minmax(148px,1.28fr) minmax(80px,.85fr) minmax(72px,.82fr) minmax(88px,1fr) minmax(92px,1fr) 58px;gap:4px}
-  .dashboard-header .job-header-actions{grid-column:3}
-  .dashboard-header .filters :is(label,.filter-field){font-size:.64rem}
-  .dashboard-title h1{font-size:1rem}
-  .dashboard-title small{font-size:.65rem}
+@media(max-width:550px){
+  .dashboard-header{grid-template-columns:minmax(0,1fr)}
+  .dashboard-header .job-header-actions{grid-row:2;grid-column:1;justify-content:start}
+  .dashboard-header .filters{grid-row:3}
 }
-@media(max-width:550px){.dashboard-header{grid-template-columns:minmax(0,1fr)}.dashboard-header .job-header-actions{grid-row:2;grid-column:1;justify-content:start}}
 </style>
 <header class="dashboard-header"><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
 <label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><div class="dashboard-title"><p class="dashboard-brand"><span class="dashboard-mark" aria-hidden="true"><i></i><i></i><i></i></span>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></div>
