@@ -150,7 +150,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .job-context{background:#e8f2fa;color:#1a4765;padding:5px 8px;border-radius:5px;font-size:.75rem;font-weight:700}
 #saveJobCharges{width:auto;margin:5px 0;background:#dff3e7;border-color:#afd8be;color:#205c3d}
 </style>
-<header><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
+<header><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button><p>GTL · GLOBAL PARK <span id="activeJobBadge" style="display:inline-block;margin-left:6px;padding:3px 7px;border:1px solid #93c1cd;border-radius:4px;color:#fff;letter-spacing:0"></span></p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Customer<select id="customer"></select></label>
@@ -310,6 +310,7 @@ function staffing(rows) {
 }
 let from='',to='';
 function render() {
+  el('activeJobBadge').textContent=el('customer').value+' / JOB '+el('job').value;
   el('rangeText').textContent=from&&to?`${from} – ${to}`:'All dates';
   const direction=el('direction').value;
   const invalid=from && to && from>to;
