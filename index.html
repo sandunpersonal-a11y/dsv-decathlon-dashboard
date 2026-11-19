@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DSV Decathlon | Vehicle & Cargo Operations Dashboard</title>
+<title>Warehouse Operations &amp; Job Costing</title>
 <style>
 :root{font-family:Inter,system-ui,sans-serif;color:#17283b;background:#eef2f6;--teal:#087972;--blue:#245eb2;--line:#d9e3ed}
 *{box-sizing:border-box}body{margin:0}header{background:#112741;color:white;border-bottom:5px solid #24b4a4;padding:28px max(5%,calc((100% - 1340px)/2))}header p{margin:0;color:#afdcd8;font-weight:700;letter-spacing:.12em;font-size:.78rem}h1{font-size:clamp(1.7rem,4vw,2.65rem);line-height:1.1;margin:.5rem 0}header small{color:#dce6f3}main{width:min(94%,1340px);margin:22px auto 40px}.panel,.card{background:white;border:1px solid var(--line);border-radius:12px;padding:17px}.filters,.cards,.charts{display:grid;gap:12px;margin-bottom:16px}.filters{grid-template-columns:repeat(auto-fit,minmax(143px,1fr));align-items:end}.cards{grid-template-columns:repeat(auto-fit,minmax(146px,1fr))}.charts{grid-template-columns:repeat(2,minmax(0,1fr))}.card span, label{font-size:.81rem;font-weight:700;color:#415972}.card strong{display:block;font-size:1.52rem;color:#102e50;margin-top:5px}.card small,.muted{color:#4c6177;font-size:.82rem}input,select,button{font:inherit;color:inherit;background:white;border:1px solid #9eafc1;border-radius:6px;padding:8px;width:100%}label input,label select{margin-top:5px}button{cursor:pointer;font-weight:650}button:hover{background:#eef5fd}h2{font-size:1.12rem;margin:0 0 8px}p{margin:0 0 10px}.scroll{overflow:auto}.plot{max-height:380px;overflow:auto}.barrow{display:grid;grid-template-columns:minmax(104px,1fr) minmax(80px,2fr) 68px;align-items:center;gap:8px;margin:9px 0;font-size:.78rem}.track{height:12px;background:#e9eef5;border-radius:5px;overflow:hidden}.bar{display:block;height:100%;background:var(--teal)}.bar.load{background:var(--blue)}table{border-collapse:collapse;width:100%;font-size:.84rem}td,th{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{background:#eaf1f8}.oplink{width:auto;padding:3px 8px;color:#154a87}.details{margin-top:15px}.crew{display:flex;gap:8px 24px;flex-wrap:wrap;margin:8px 0 15px}dialog{width:min(850px,94vw);max-height:88vh;border:1px solid var(--line);border-radius:12px;padding:20px;color:inherit}dialog::backdrop{background:#10253bb5}.close{width:auto;float:right}footer{margin-top:14px}.legend{font-size:.8rem;color:#3b546c}.legend b:first-child{color:var(--blue)}.legend b:last-child{color:var(--teal)}@media(max-width:720px){.charts{grid-template-columns:1fr}}
@@ -220,9 +220,28 @@ button:not(:disabled):active{transform:translateY(1px);box-shadow:inset 0 1px 2p
 @media(max-width:550px){.job-header-actions{float:none;justify-content:space-between;margin:0 0 7px}}
 .filters{grid-template-columns:repeat(auto-fit,minmax(min(100%,133px),1fr))}
 @media(min-width:1060px){.filters{grid-template-columns:88px 145px minmax(85px,1fr) minmax(85px,1fr) minmax(110px,1.35fr) minmax(95px,1fr) 88px}}
+
+.job-header-actions,.header-scope{align-items:end}
+.header-scope select,#openCosts{height:29px;box-sizing:border-box}
+.header-scope label{margin:0}
+#openCosts{display:inline-flex;align-items:center;padding:0 8px;white-space:nowrap}
+.crew-mini-grid{grid-template-columns:minmax(0,1fr);gap:3px}
+.crew-mini{display:grid;grid-template-columns:minmax(78px,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:5px;padding:3px 5px}
+.crew-mini>div{display:grid;gap:1px;justify-content:start;margin:0;min-width:0;overflow-wrap:anywhere}
+.crew-mini>div:last-child{grid-column:4;background:#e8f1f9;border-radius:4px;padding:0 4px}
+.crew-mini>div:nth-child(2):nth-last-child(2){grid-column:2 / 4}
+#costForm{max-width:930px;padding:10px}
+#costSettings th,#costSettings td{padding:2px 3px;font-size:.66rem}
+#payrollRows input,#jobCharges input,#jobCharges select{padding:2px 4px;font-size:.68rem}
+#payrollRows input:disabled,#jobCharges :disabled,#vasDetails:disabled{pointer-events:none;opacity:1;background:#edf3f8;color:#314b62}
+.category-actions{display:flex;gap:4px;margin-top:5px}.category-actions button{width:auto}
+#editJobCharges{background:#e0edff;color:#204d82}#removeJobCharges{background:#fae6e5;color:#923d3d}
+.saved-category{margin:5px 0 0;padding:4px 6px;border-radius:5px;background:#e8f4eb;color:#225b38;font-size:.7rem;overflow-wrap:anywhere}
+.kpi-group .card,.timeline-costs article,.crew-mini{box-shadow:inset 0 1px 0 #ffffffb0,0 2px 0 #274a6b24,0 3px 5px #17385312}
+button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 </style>
 <header><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
-<label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
+<label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Week<select id="week"></select></label>
@@ -272,7 +291,8 @@ button:not(:disabled):active{transform:translateY(1px);box-shadow:inset 0 1px 2p
 <p class="muted">Enter standard LKR amounts per visit. Leave a field blank when it does not apply. Storage area and additional storage charges are added separately.</p>
 <div class="scroll"><table><thead><tr><th>Category</th><th>Item / Service</th><th>Unloading (LKR / visit)</th><th>Loading (LKR / visit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
 <label id="vasDetailsField" hidden>VAS / Rework Details<textarea id="vasDetails" rows="3" maxlength="1000" placeholder="Describe the work, quantity or special instructions"></textarea></label>
-<button id="saveJobCharges" type="button">Save Category</button>
+<div class="category-actions"><button id="editJobCharges" type="button">Edit</button><button id="saveJobCharges" type="button" disabled>Save Category</button><button id="removeJobCharges" type="button">Remove</button></div>
+<p id="savedCategory" class="saved-category" aria-live="polite"></p>
 </section>
 <p id="costMessage" class="muted" role="status"></p>
 
@@ -535,6 +555,7 @@ function selectCostTab(key){
     button.setAttribute('aria-pressed',String(button.dataset.costTab===key));
   }
   for(const row of el('jobCharges').rows)row.hidden=row.dataset.category!==key;
+  if(key!=='payroll')refreshCategory();
 }
 el('costSections').innerHTML=costTabs.map(([key,label])=>`<button type="button" data-cost-tab="${key}" aria-pressed="false">${esc(label)}</button>`).join('');
 el('costSections').addEventListener('click',event=>{
@@ -600,9 +621,9 @@ function visitEstimate(visit){
     assigned.add(epf);
     costs.set(epf,{priced,complete,total});
     return `<article class="crew-mini"><div><b>${role}</b><span>EPF ${esc(epf)}</span></div>
-      ${showDay?`<div><span>Day ${duration(time.day)}</span><strong>${showCost(dayCost)}</strong></div>`:''}
+      ${showDay?`<div><span>Reg. ${duration(time.day)}</span><strong>${showCost(dayCost)}</strong></div>`:''}
       ${showOT?`<div><span>OT ${duration(time.ot)}</span><strong>${showCost(otCost)}</strong></div>`:''}
-      <div><span>${priced&&!complete?'Known cost':'Labour cost'}</span><strong>${priced?money(total):'—'}</strong></div></article>`;
+      <div><span>${priced&&!complete?'Partial total':'Total'}</span><strong>${priced?money(total):'—'}</strong></div></article>`;
   })).join('');
   const recordedCosts=[...costs.values()];
   const labour=recordedCosts.reduce((total,entry)=>total+entry.total,0);
@@ -653,7 +674,7 @@ function renderVisitCost(visit,rows,direction){
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
 }
 function addPayrollRow(person={},editing=false){
-  const readonly=editing?'':' readonly';
+  const readonly=editing?'':' readonly disabled';
   el('payrollRows').insertAdjacentHTML('beforeend',`<tr data-epf="${esc(person.epf??'')}"><td><input aria-label="EPF Number" data-field="epf" value="${esc(person.epf??'')}"${readonly}></td>
     <td><input aria-label="Designation" data-field="designation" value="${esc(person.designation??'')}"${readonly}></td>
     <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
@@ -686,7 +707,7 @@ function saveCosts(updated){
   return true;
 }
 function setEditing(box,fields,editing,editButton,saveButton){
-  for(const input of fields)input.readOnly=!editing;
+  for(const input of fields){input.readOnly=!editing;input.disabled=!editing;}
   box.querySelector(editButton).disabled=editing;
   box.querySelector(saveButton).disabled=!editing;
   if(editing)fields[0].focus();
@@ -727,15 +748,56 @@ el('payrollPinForm').addEventListener('submit',event=>{
 el('addPay').addEventListener('click',()=>addPayrollRow({},true));
 el('cancelCosts').addEventListener('click',()=>el('costSettings').close());
 const amount=value=>value===''?null:Number(value);
+function currentCategoryRow(){
+  return el('jobCharges').querySelector(`[data-category="${selectedCostTab}"]`);
+}
+function lockCategory(locked){
+  const row=currentCategoryRow();
+  if(!row)return;
+  for(const field of row.querySelectorAll('input, select'))field.disabled=locked;
+  el('vasDetails').disabled=locked;
+  el('editJobCharges').disabled=!locked;
+  el('saveJobCharges').disabled=locked;
+  if(!locked)row.querySelector('select').focus();
+}
+function refreshCategory(){
+  const row=currentCategoryRow();
+  if(!row)return;
+  const key=selectedCostTab;
+  const item=costSettings.chargeItems?.[key]??'';
+  const unload=costSettings.charges?.U?.[key];
+  const load=costSettings.charges?.L?.[key];
+  const notes=key==='vas'?costSettings.vasDetails??'':'';
+  row.querySelector('select').value=item;
+  for(const input of row.querySelectorAll('[data-charge]'))input.value=costSettings.charges?.[input.dataset.direction]?.[key]??'';
+  if(key==='vas')el('vasDetails').value=notes;
+  const exists=item||knownAmount(unload)||knownAmount(load)||notes;
+  el('savedCategory').hidden=!exists;
+  el('savedCategory').textContent=exists?`Saved · ${item||costTabs.find(tab=>tab[0]===key)[1]} · Unloading ${knownAmount(unload)?money(unload):'—'} · Loading ${knownAmount(load)?money(load):'—'}${notes?' · '+notes:''}`:'';
+  el('removeJobCharges').disabled=!exists;
+  lockCategory(true);
+}
+el('editJobCharges').addEventListener('click',()=>lockCategory(false));
 el('saveJobCharges').addEventListener('click',()=>{
-  const inputs=[...el('jobCharges').querySelectorAll('[data-charge]')].filter(input=>input.dataset.charge===selectedCostTab);
+  const row=currentCategoryRow();
+  if(!row||el('saveJobCharges').disabled)return;
+  const inputs=[...row.querySelectorAll('[data-charge]')];
   if(!inputs.every(input=>input.reportValidity()))return;
   const charges={U:{...costSettings.charges?.U},L:{...costSettings.charges?.L}};
-  for(const input of inputs)charges[input.dataset.direction][input.dataset.charge]=amount(input.value);
-  const item=el('jobCharges').querySelector(`[data-charge-item="${selectedCostTab}"]`);
-  const chargeItems={...costSettings.chargeItems,[selectedCostTab]:item?.value??''};
+  for(const input of inputs)charges[input.dataset.direction][selectedCostTab]=amount(input.value);
+  const chargeItems={...costSettings.chargeItems,[selectedCostTab]:row.querySelector('select').value};
   const vasDetails=selectedCostTab==='vas'?el('vasDetails').value.trim():costSettings.vasDetails;
-  saveCosts({...costSettings,charges,chargeItems,vasDetails});
+  if(saveCosts({...costSettings,charges,chargeItems,vasDetails}))refreshCategory();
+});
+el('removeJobCharges').addEventListener('click',()=>{
+  if(el('removeJobCharges').disabled)return;
+  const key=selectedCostTab;
+  const charges={U:{...costSettings.charges?.U},L:{...costSettings.charges?.L}};
+  const chargeItems={...costSettings.chargeItems};
+  delete charges.U[key];
+  delete charges.L[key];
+  delete chargeItems[key];
+  if(saveCosts({...costSettings,charges,chargeItems,vasDetails:key==='vas'?'':costSettings.vasDetails}))refreshCategory();
 });
 el('costForm').addEventListener('submit',event=>event.preventDefault());
 el('costForm').addEventListener('click',event=>{
