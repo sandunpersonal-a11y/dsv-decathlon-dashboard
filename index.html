@@ -167,6 +167,12 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 #vasDetailsField:not([hidden]){display:block;margin-top:8px}
 #vasDetails{display:block;width:100%;margin-top:3px;padding:6px;border:1px solid #b8d0e0;border-radius:5px;font:inherit;resize:vertical}
 .vas-notes{white-space:pre-wrap;overflow-wrap:anywhere}
+
+#costSummary:not([hidden]){grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));margin-bottom:9px}
+#costSummary article:last-child{background:#efdcc6;border-color:#d2ae86;color:#583818}
+#visitCost{margin:6px 7px 4px;background:#fcfbff;border-left:3px solid #6555aa}
+#visitCost h3{margin:0 0 4px;font-size:.94rem;color:#30275d}
+#visitCost .working-hours{margin:4px 0 7px}
 </style>
 <header><div class="job-header-actions"><span id="activeJobBadge"></span><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
@@ -182,8 +188,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 <button id="reset"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg>Reset filters</button>
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
-<div class="visit-overview"><section id="crewStrip" aria-label="Selected vehicle crew" hidden></section><section id="costSummary" aria-label="Operation cost summary" hidden></section></div>
-<section id="visitCost" class="panel" aria-label="Selected visit cost" hidden></section>
+<section id="costSummary" aria-label="Operation cost summary" hidden></section>
 <section id="cards" class="cards" aria-label="Operations summary"></section>
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
@@ -375,16 +380,8 @@ function render() {
         card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
-    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2><div class="kpi-row">${metrics.join('')}</div>${staffing(items)}</section>`;
+    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2>${selected?'<section id="visitCost" class="panel" aria-label="Selected visit time and crew costs"></section>':''}<div class="kpi-row">${metrics.join('')}</div>${selected?'':staffing(items)}</section>`;
   }).join('');
-  const strip=el('crewStrip');
-  strip.hidden=!selected;
-  strip.innerHTML=selected?rows.map(o=>{
-    const fields=[['Head Count',o.heads],['Supervisor EPF',o.supervisors.join(', '),o.supervisors.length],['Tally Clerk EPF',o.tally.join(', '),o.tally.length],['Operator EPF',o.operators.join(', '),o.operators.length]];
-    return `<div class="crew-strip-row">${card(operationName(o.direction)+' Time',duration(o.minutes),'','clock',o.direction)}${fields.map(([label,value,count],i)=>
-      `<div class="filter-field"><span id="crew-${o.reg}-${i}">${label}${count===undefined?'':`<b class="chip">${count}</b>`}</span><output class="locked" aria-labelledby="crew-${o.reg}-${i}">${esc(value)}</output></div>`).join('')}</div>${workingHours(o)}`;
-
-  }).join(''):'';
   renderVisitCost(selected,rows,direction);
   el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
   el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.id}">${o.reg}</button></td>${[o.cargo.length===1?o.cargo[0].document:`${o.cargo[0].document} +${o.cargo.length-1}`,o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12">No matching operations.</td></tr>';
@@ -576,8 +573,7 @@ function renderVisitCost(visit,rows,direction){
   const summary=el('costSummary');
   summary.hidden=!(visit||direction);
   summary.innerHTML='';
-  panel.hidden=!visit;
-  panel.innerHTML='';
+
   if(!visit&&!direction)return;
   const estimates=rows.map(visitEstimate);
   const labour=estimates.reduce((n,e)=>n+e.labour,0);
@@ -591,7 +587,7 @@ function renderVisitCost(visit,rows,direction){
   const tile=(label,value,note='')=>`<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`;
   summary.innerHTML=tile(operation+' Area Cost',hasArea?money(areaCost):'—',knownAmount(rate)?money(rate)+' / ft²':'Rate pending')+
     tile('Labour Cost',hasLabour?money(labour):'—','Estimated crew cost')+
-    tile('Other Operating Costs',money(operatingCost),'Equipment, materials and services')+
+    (operatingCost>0?tile('Other Operating Costs',money(operatingCost),'Equipment, materials and services'):'')+
     tile('Total Cost',hasLabour||hasArea||operatingCost>0?money(labour+areaCost+operatingCost):'—',complete?'Estimated total':'Known costs only');
   if(!visit)return;
   const charges=costSettings.charges?.[visit.direction]??{};
@@ -600,7 +596,7 @@ function renderVisitCost(visit,rows,direction){
     return `<span><strong>${esc(label)}${item?' · '+esc(item):''}</strong> ${money(charges[key])}</span>`;
   }).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
-  panel.innerHTML=`<h2>${operationName(visit.direction)} Cost · ${esc(visit.vehicle)}</h2>
+  panel.innerHTML=`<h3>${operationName(visit.direction)} Time · ${duration(visit.minutes)}</h3><p class="muted">${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</p>${workingHours(visit)}
     <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses Basic Salary ÷ 200 × 1.5 per hour.</p>
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
     ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
