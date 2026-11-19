@@ -94,9 +94,9 @@
 header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .visit-overview{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-bottom:10px}
 #crewStrip{margin:0;align-content:center}
-#costSummary:not([hidden]){display:flex;flex:1 1 330px;gap:5px}
-#costSummary article{flex:1;min-width:0;background:#eff7fb;border:1px solid #c5deeb;border-radius:7px;padding:6px 8px;color:#184965}
-#costSummary span,#costSummary small{display:block;font-size:.7rem}#costSummary strong{display:block;margin:2px 0;font-size:.93rem}
+:is(#costSummary,#visitCostSummary):not([hidden]){display:flex;flex:1 1 330px;gap:5px}
+:is(#costSummary,#visitCostSummary) article{flex:1;min-width:0;background:#eff7fb;border:1px solid #c5deeb;border-radius:7px;padding:6px 8px;color:#184965}
+:is(#costSummary,#visitCostSummary) span,:is(#costSummary,#visitCostSummary) small{display:block;font-size:.7rem}:is(#costSummary,#visitCostSummary) strong{display:block;margin:2px 0;font-size:.93rem}
 .rate-box{padding:8px;border:1px solid #d7e6ee;border-radius:7px;background:#f3f8fc}
 .rate-box button,.pay-actions button{width:auto;padding:4px 7px;margin:4px 3px 0 0;font-size:.72rem}
 .rate-box input[readonly],#payrollRows input[readonly]{background:#edf3f8}button:disabled{opacity:.5;cursor:default}
@@ -114,20 +114,20 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .visit-overview{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
 .visit-overview>*{min-width:0}
 #crewStrip{width:100%;max-width:100%}
-#costSummary:not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
-#costSummary article{background:#fff2e2;border-color:#efc495;color:#783d10;overflow-wrap:anywhere}
-#costSummary article:last-child{background:#aa410b;border-color:#aa410b;color:white}
-#costSummary strong{font-size:clamp(.74rem,1.15vw,1rem);font-variant-numeric:tabular-nums}
+:is(#costSummary,#visitCostSummary):not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+:is(#costSummary,#visitCostSummary) article{background:#fff2e2;border-color:#efc495;color:#783d10;overflow-wrap:anywhere}
+:is(#costSummary,#visitCostSummary) article:last-child{background:#aa410b;border-color:#aa410b;color:white}
+:is(#costSummary,#visitCostSummary) strong{font-size:clamp(.74rem,1.15vw,1rem);font-variant-numeric:tabular-nums}
 .working-hours{margin-top:6px;padding-top:5px;border-top:1px solid #d7e5f1}
 .working-hours h3{margin:0 0 4px;font-size:.75rem}.working-hours h3 small{font-weight:400;margin-left:4px;color:#415972}
 .working-hours>div{display:flex;flex-wrap:wrap;gap:4px}
 .working-hours span{background:#edf3f9;border:1px solid #d7e5f1;padding:3px 7px;border-radius:5px;font-size:.67rem}
 .working-hours strong{display:block;font-size:.78rem}
-@media(min-width:850px){.visit-overview:has(#crewStrip:not([hidden])):has(#costSummary:not([hidden])){grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
-@media(max-width:849px){#costSummary{grid-row:1}}
+@media(min-width:850px){.visit-overview:has(#crewStrip:not([hidden])):has(:is(#costSummary,#visitCostSummary):not([hidden])){grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
+@media(max-width:849px){:is(#costSummary,#visitCostSummary){grid-row:1}}
 
-#costSummary article{background:#fbf3e9;border-color:#e8d2ba;color:#70491f}
-#costSummary article:last-child{background:#edf2f5;border-color:#cad6df;color:#263b4b}
+:is(#costSummary,#visitCostSummary) article{background:#fbf3e9;border-color:#e8d2ba;color:#70491f}
+:is(#costSummary,#visitCostSummary) article:last-child{background:#edf2f5;border-color:#cad6df;color:#263b4b}
 .crew-strip-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.65fr) repeat(2,minmax(0,1fr)) minmax(0,1.25fr);align-items:start;gap:4px}
 .crew-strip-row>*{min-width:0}
 .crew-strip-row .card,.crew-strip-row .locked{overflow-wrap:anywhere}
@@ -146,7 +146,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 
 .filters{grid-template-columns:repeat(auto-fit,minmax(min(100%,135px),1fr))}
 @media(min-width:1060px){.filters{grid-template-columns:90px 90px 86px 145px minmax(85px,1fr) minmax(85px,1fr) minmax(110px,1.35fr) minmax(95px,1fr) 88px}}
-#costSummary:not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))}
+:is(#costSummary,#visitCostSummary):not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))}
 .job-context{background:#e8f2fa;color:#1a4765;padding:5px 8px;border-radius:5px;font-size:.75rem;font-weight:700}
 #saveJobCharges{width:auto;margin:5px 0;background:#dff3e7;border-color:#afd8be;color:#205c3d}
 
@@ -168,8 +168,8 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 #vasDetails{display:block;width:100%;margin-top:3px;padding:6px;border:1px solid #b8d0e0;border-radius:5px;font:inherit;resize:vertical}
 .vas-notes{white-space:pre-wrap;overflow-wrap:anywhere}
 
-#costSummary:not([hidden]){grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));margin-bottom:9px}
-#costSummary article:last-child{background:#efdcc6;border-color:#d2ae86;color:#583818}
+:is(#costSummary,#visitCostSummary):not([hidden]){grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));margin-bottom:9px}
+:is(#costSummary,#visitCostSummary) article:last-child{background:#efdcc6;border-color:#d2ae86;color:#583818}
 #visitCost{margin:6px 7px 4px;background:#fcfbff;border-left:3px solid #6555aa}
 #visitCost h3{margin:0 0 4px;font-size:.94rem;color:#30275d}
 #visitCost .working-hours{margin:4px 0 7px}
@@ -179,10 +179,23 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .kpi-group .card>span{font-size:inherit;line-height:1.2}
 .kpi-group .card>strong{margin:0;font-size:.92rem;line-height:1.18;white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
 .kpi-group .card>small{font-size:.58rem;line-height:1.2}
-.kpi-group .card,#costSummary article{box-shadow:inset 0 1px 0 #ffffffa0,0 2px 2px #162e5110}
+.kpi-group .card,:is(#costSummary,#visitCostSummary) article{box-shadow:inset 0 1px 0 #ffffffa0,0 2px 2px #162e5110}
 button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff70,0 2px 0 #17385328}
 button:not(:disabled):active{transform:translateY(1px);box-shadow:inset 0 1px 2px #17385326}
 @media(min-width:481px) and (max-width:650px){.kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.visit-cost-layout{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);align-items:start;gap:9px;padding:7px}
+.visit-cost-layout>*{min-width:0}
+#visitCost{margin:0;padding:6px 8px}
+.visit-time-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.72rem}
+#visitCost .visit-time-heading>.card{display:block;padding:4px 7px;background:#f1edfb;border-color:#dcd2f0;border-left-color:#6555aa}
+#visitCost .visit-time-heading strong{margin:2px 0 0;font-size:.94rem}
+#visitCost .visit-time-heading small:empty{display:none}
+#visitCost th,#visitCost td{font-size:.72rem;padding:3px 5px}
+#visitCostSummary:not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0}
+#visitCostSummary article{padding:5px 6px}
+@media(max-width:760px){.visit-cost-layout{grid-template-columns:minmax(0,1fr)}}
+.kpi-group .card>strong{font-size:clamp(.71rem,1.1vw,.92rem);white-space:nowrap}
 </style>
 <header><div class="job-header-actions"><span id="activeJobBadge"></span><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
@@ -390,7 +403,7 @@ function render() {
         card('Estimated Loading Pick Area',fmt(estimatedArea(cbm),2)+' sq ft','1.7 CBM = 25 sq ft','area',d),
       ]),
     ];
-    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2>${selected?'<section id="visitCost" class="panel" aria-label="Selected visit time and crew costs"></section>':''}<div class="kpi-row">${metrics.join('')}</div>${selected?'':staffing(items)}</section>`;
+    return `<section class="kpi-group ${d==='U'?'unloading':'loading'}"><h2>${label}</h2>${selected?'<div class="visit-cost-layout"><section id="visitCost" class="panel" aria-label="Selected visit time and crew costs"></section><aside id="visitCostSummary" aria-label="Selected visit cost totals"></aside></div>':''}<div class="kpi-row">${metrics.join('')}</div>${selected?'':staffing(items)}</section>`;
   }).join('');
   renderVisitCost(selected,rows,direction);
   el('charts').innerHTML=chart(rows,directions,'count')+chart(rows,directions,'time');
@@ -580,8 +593,8 @@ function visitEstimate(visit){
 }
 function renderVisitCost(visit,rows,direction){
   const panel=el('visitCost');
-  const summary=el('costSummary');
-  summary.hidden=!(visit||direction);
+  el('costSummary').hidden=Boolean(visit)||!direction;
+  const summary=el(visit?'visitCostSummary':'costSummary');
   summary.innerHTML='';
 
   if(!visit&&!direction)return;
@@ -606,8 +619,8 @@ function renderVisitCost(visit,rows,direction){
     return `<span><strong>${esc(label)}${item?' · '+esc(item):''}</strong> ${money(charges[key])}</span>`;
   }).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
-  panel.innerHTML=`<h3>${operationName(visit.direction)} Time · ${duration(visit.minutes)}</h3><p class="muted">${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</p>${workingHours(visit)}
-    <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses Basic Salary ÷ 200 × 1.5 per hour.</p>
+  panel.innerHTML=`<div class="visit-time-heading">${card(operationName(visit.direction)+' Time',duration(visit.minutes),'','clock',visit.direction)}<span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
+    ${workingHours(visit)}
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
     ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
     ${chargeDetails?`<div class="cost-totals">${chargeDetails}</div>`:''}
