@@ -292,9 +292,18 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 .charge-fields output{display:block;padding:4px;margin-top:2px;background:#eaf2fa;border-radius:4px}
 .dated-breakdown{grid-column:1/-1;font-size:.7rem;padding:3px 5px}
 .dated-breakdown p{margin:3px 0}
+
+.dashboard-brand{display:flex;align-items:center;gap:5px}.dashboard-mark{display:inline-flex;align-items:flex-end;gap:2px;height:16px;padding:3px;background:#e6f7f4;border-radius:3px}.dashboard-mark i{display:block;width:3px;height:4px;background:#238168}.dashboard-mark i:nth-child(2){height:7px}.dashboard-mark i:nth-child(3){height:10px}
+#jobCharges label{display:block;max-width:280px}#jobCharges label[hidden]{display:none}
+.charge-fields{grid-template-columns:repeat(7,minmax(0,1fr));align-items:end}
+.charge-fields input,.charge-fields select{height:28px;width:100%;min-width:0;padding:2px 4px;margin:3px 0 0;font-size:.7rem}
+.operation-cost .kpi-row,.operation-cost .timeline-costs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.operation-cost .kpi-row:has(>article:nth-child(4)),.operation-cost .timeline-costs:has(>article:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
+#visitCost .crew-mini>div{flex-wrap:nowrap;white-space:nowrap}.crew-mini{min-width:420px}.crew-mini-grid{overflow-x:auto}
+@media(max-width:720px){.charge-fields{grid-template-columns:repeat(auto-fit,minmax(105px,1fr))}}
 </style>
 <header><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
-<label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></header>
+<label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p class="dashboard-brand"><span class="dashboard-mark" aria-hidden="true"><i></i><i></i><i></i></span>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Week<select id="week"></select></label>
@@ -339,13 +348,15 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 </section>
 <section id="operatingCostSection" hidden><h3 id="chargeSectionTitle">Operating Costs</h3>
 <p class="muted">Enter quantity and LKR per unit for the applicable operation. Each dated charge is counted once.</p>
-<div class="scroll"><table><thead><tr><th>Category</th><th>Item / Service</th><th>Unloading (LKR / unit)</th><th>Loading (LKR / unit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
+<div id="jobCharges"></div>
 <div class="charge-fields">
-<label>Charge Date<input id="chargeDate" type="date" required></label>
-<label>ISO Week<output id="chargeWeek">—</output></label>
+<label>Charge Date<input id="chargeDate" type="date"></label>
+<label>ISO Week<input id="chargeWeek" type="week"></label>
 <label>Charge Unit<select id="chargeUnit"></select></label>
 <label>Quantity<input id="chargeQuantity" type="number" min="0.001" step="any"></label>
-<label>Vehicle Operation<select id="chargeVehicle"></select></label>
+<label>Operation<select id="chargeDirection"><option value="U">Unloading</option><option value="L">Loading</option></select></label>
+<label>Vehicle<select id="chargeVehicle"></select></label>
+<label>Rate · LKR / unit<input id="chargeRate" type="number" min="0" step="any"></label>
 </div>
 <p id="chargePreview" class="muted" aria-live="polite"></p>
 <label id="vasDetailsField" hidden>VAS / Rework Details<textarea id="vasDetails" rows="3" maxlength="1000" placeholder="Describe the work, quantity or special instructions"></textarea></label>
@@ -436,13 +447,13 @@ function averageTimeChart(rows,direction,max){
     ${groups.map(g=>`<div class="average-row"><strong>${g.kind}</strong><div class="track" aria-hidden="true"><i style="width:${100*g.minutes/max}%"></i></div><b>${g.visits?duration(g.minutes):'—'}</b><small>${g.visits} vehicles</small></div>`).join('')}
   </article>`;
 }
-function timelineCard(rows,direction,selected){
+function timelineCard(rows,direction,selected,showLabels=true){
   const times=rows.map(o=>splitWorkingMinutes(o.start,o.end)).filter(Boolean);
   const day=sum(times,'day'),ot=sum(times,'ot'),total=day+ot;
   return `<article class="panel operation-timeline">
     <p class="muted">${selected?`${esc(stamp(selected.start))} → ${esc(stamp(selected.end))}`:`${rows.length} vehicles · combined elapsed time`}</p>
     ${total?`<div class="time-band" aria-hidden="true"><i style="width:${100*day/total}%"></i><i style="width:${100*ot/total}%"></i></div>`:''}
-    <div class="time-labels">${day?`<span>Day <b>${duration(day)}</b></span>`:''}${ot?`<span>OT <b>${duration(ot)}</b></span>`:''}<span>Total <b>${times.length?duration(total):'—'}</b></span></div>
+    ${showLabels?`<div class="time-labels">${day?`<span>Day <b>${duration(day)}</b></span>`:''}${ot?`<span>OT <b>${duration(ot)}</b></span>`:''}<span>Total <b>${times.length?duration(total):'—'}</b></span></div>`:''}
   </article>`;
 }
 function staffing(rows) {
@@ -627,7 +638,7 @@ function selectCostTab(key){
   for(const button of el('costSections').querySelectorAll('button')){
     button.setAttribute('aria-pressed',String(button.dataset.costTab===key));
   }
-  for(const row of el('jobCharges').rows)row.hidden=row.dataset.category!==key;
+  for(const row of el('jobCharges').children)row.hidden=row.dataset.category!==key;
   if(key!=='payroll')refreshCategory();
 }
 el('costSections').innerHTML=costTabs.map(([key,label])=>`<button type="button" data-cost-tab="${key}" aria-pressed="false">${esc(label)}</button>`).join('');
@@ -743,9 +754,10 @@ function renderVisitCost(visit,rows,direction){
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<div class="visit-time-heading"><span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
     <div class="crew-counts time-chip"><span>${operationName(visit.direction)} Time <b>${duration(visit.minutes)}</b></span></div>
-    ${timelineCard([visit],visit.direction,visit)}
+    ${timelineCard([visit],visit.direction,visit,false)}
     ${personRows?`<div class="crew-mini-grid">${personRows}</div>`:'<p class="muted">No matching crew EPF records.</p>'}
     <div class="crew-counts">${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
+    ${(()=>{const t=splitWorkingMinutes(visit.start,visit.end);return t?`<div class="time-labels">${t.day?`<span>Day <b>${duration(t.day)}</b></span>`:''}${t.ot?`<span>OT <b>${duration(t.ot)}</b></span>`:''}<span>Total <b>${duration(t.total)}</b></span></div>`:'';})()}
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
     ${chargeDetails?`<div class="crew-mini-grid charge-list" aria-label="Additional cost items">${chargeDetails}</div>`:''}
     ${dated.map(({label,entry,total})=>`<div class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.date)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(total)}</strong></div></div>`).join('')}
@@ -818,7 +830,7 @@ el('payrollPinForm').addEventListener('submit',event=>{
   el('costMessage').textContent='';
   el('jobCostContext').textContent=`${el('customer').value} · Job ${el('job').value}`;
   el('jobCharges').innerHTML=chargeCategories.map(([key,label])=>
-    `<tr data-category="${key}"><th scope="row">${esc(label)}</th><td><select data-charge-item="${key}" aria-label="${esc(label)} item"><option value="">Select item</option>${categoryOptions[key].map(item=>`<option value="${esc(item)}" ${costSettings.chargeItems?.[key]===item?'selected':''}>${esc(item)}</option>`).join('')}</select></td>${['U','L'].map(direction=>`<td><input type="number" min="0" step="any" aria-label="${esc(operationName(direction)+' '+label)}" data-charge="${key}" data-direction="${direction}" value="${esc(costSettings.charges?.[direction]?.[key]??'')}"></td>`).join('')}</tr>`).join('');
+    `<label data-category="${key}">Item / Service<select aria-label="${esc(label)} item"><option value="">Select item</option>${optionList(categoryOptions[key])}</select></label>`).join('');
   el('vasDetails').value=costSettings.vasDetails??'';
   selectCostTab('payroll');
   el('costSettings').scrollTop=0;
@@ -856,35 +868,56 @@ function datedCharges(rows,direction,visit){
   const filterType=el('kind').value;
   if(from&&to&&from>to)return [];
   return chargeCategories.flatMap(([key,label])=>categoryEntries(key)
-    .filter(entry=>entry.date&&(!from||entry.date>=from)&&(!to||entry.date<=to)&&knownAmount(entry[direction])&&
+    .filter(entry=>entry.date&&(!from||(entry.periodEnd??entry.date)>=from)&&(!to||entry.date<=to)&&knownAmount(entry[direction])&&
       (visit?entry.vehicle===visit.id:filterType?ids.has(entry.vehicle):true))
     .map(entry=>({label,entry,total:chargeTotal(entry,direction)})));
 }
-function refreshChargePreview(){
+function isoWeekValue(day){
+  const week=monday(day);
+  return addDays(week,3).slice(0,4)+'-W'+String(weekNumber(week)).padStart(2,'0');
+}
+function selectedChargePeriod(){
   const day=el('chargeDate').value;
-  const week=day?monday(day):null;
-  el('chargeWeek').textContent=day?`${addDays(week,3).slice(0,4)} · W${weekNumber(week)}`:'—';
+  if(day)return {date:day,periodEnd:day};
+  const week=el('chargeWeek').value;
+  if(!/^\d{4}-W\d{2}$/.test(week))return null;
+  const start=addDays(monday(week.slice(0,4)+'-01-04'),7*(Number(week.slice(6))-1));
+  return isoWeekValue(start)===week?{date:start,periodEnd:addDays(start,6)}:null;
+}
+function updateChargeVehicles(preferred=''){
+  const direction=el('chargeDirection').value;
+  const available=activeOperations().filter(o=>o.direction===direction);
+  el('chargeVehicle').innerHTML='<option value="">Job-wide charge</option>'+available.map(o=>`<option value="${esc(o.id)}">${esc(visitLabel(o))}</option>`).join('');
+  el('chargeVehicle').value=available.some(o=>o.id===preferred)?preferred:'';
+}
+function refreshChargePreview(){
   const one=el('chargeUnit').value==='One-time';
   el('chargeQuantity').readOnly=one;
   if(one)el('chargeQuantity').value='1';
   const qty=amount(el('chargeQuantity').value);
-  const row=currentCategoryRow();
-  const totals=row?[...row.querySelectorAll('[data-charge]')].filter(input=>knownAmount(amount(input.value))&&qty>0)
-    .map(input=>operationName(input.dataset.direction)+' '+money(qty*amount(input.value))):[];
-  el('chargePreview').textContent=totals.join(' · ');
+  const rate=amount(el('chargeRate').value);
+  el('chargePreview').textContent=knownAmount(rate)&&qty>0?operationName(el('chargeDirection').value)+' · '+money(qty*rate):'';
 }
-for(const id of ['chargeDate','chargeUnit','chargeQuantity','jobCharges'])el(id).addEventListener('input',refreshChargePreview);
+el('chargeDate').addEventListener('input',()=>{
+  const day=el('chargeDate').value;
+  el('chargeWeek').value=day?isoWeekValue(day):'';
+});
+el('chargeWeek').addEventListener('input',()=>{el('chargeDate').value='';});
+el('chargeDirection').addEventListener('change',()=>{updateChargeVehicles();refreshChargePreview();});
+for(const id of ['chargeUnit','chargeQuantity','chargeRate'])el(id).addEventListener('input',refreshChargePreview);
 function fillChargeEditor(entry={}){
   const row=currentCategoryRow();
   if(!row)return;
   row.querySelector('select').value=entry.item??'';
-  el('chargeDate').value=entry.date??'';
+  const weekOnly=entry.periodEnd&&entry.periodEnd!==entry.date;
+  el('chargeDate').value=weekOnly?'':entry.date??'';
+  el('chargeWeek').value=entry.date?isoWeekValue(entry.date):'';
   el('chargeUnit').innerHTML=optionList(chargeUnits[selectedCostTab]);
   el('chargeUnit').value=entry.unit??chargeUnits[selectedCostTab][0];
   el('chargeQuantity').value=entry.quantity??1;
-  el('chargeVehicle').innerHTML='<option value="">Job-wide charge</option>'+activeOperations().map(o=>`<option value="${esc(o.id)}">${esc(operationName(o.direction)+' · '+visitLabel(o))}</option>`).join('');
-  el('chargeVehicle').value=entry.vehicle??'';
-  for(const input of row.querySelectorAll('[data-charge]'))input.value=entry[input.dataset.direction]??'';
+  el('chargeDirection').value=knownAmount(entry.L)&&!knownAmount(entry.U)?'L':'U';
+  el('chargeRate').value=entry[el('chargeDirection').value]??'';
+  updateChargeVehicles(entry.vehicle);
   if(selectedCostTab==='vas')el('vasDetails').value=entry.notes??'';
   refreshChargePreview();
 }
@@ -892,7 +925,7 @@ function refreshCategory(){
   editChargeIndex=null;
   fillChargeEditor();
   el('saveJobCharges').textContent='Save Item';
-  el('savedCategory').innerHTML=categoryEntries(selectedCostTab).map((entry,index)=>`<div class="saved-category"><span><strong>${esc(entry.item||'Saved item')}</strong> · ${entry.date?esc(entry.date)+' · W'+weekNumber(monday(entry.date))+' · '+fmt(entry.quantity,3)+' '+esc(entry.unit):'Legacy per vehicle'} · Unloading ${knownAmount(entry.U)?money(chargeTotal(entry,'U')):'—'} · Loading ${knownAmount(entry.L)?money(chargeTotal(entry,'L')):'—'}${entry.notes?' · '+esc(entry.notes):''}</span><button type="button" data-edit-charge="${index}">Edit</button><button type="button" data-remove-charge="${index}">Remove</button></div>`).join('');
+  el('savedCategory').innerHTML=categoryEntries(selectedCostTab).map((entry,index)=>`<div class="saved-category"><span><strong>${esc(entry.item||'Saved item')}</strong> · ${entry.date?(entry.periodEnd&&entry.periodEnd!==entry.date?isoWeekValue(entry.date):esc(entry.date)+' · W'+weekNumber(monday(entry.date)))+' · '+fmt(entry.quantity,3)+' '+esc(entry.unit):'Legacy per vehicle'} · Unloading ${knownAmount(entry.U)?money(chargeTotal(entry,'U')):'—'} · Loading ${knownAmount(entry.L)?money(chargeTotal(entry,'L')):'—'}${entry.notes?' · '+esc(entry.notes):''}</span><button type="button" data-edit-charge="${index}">Edit</button><button type="button" data-remove-charge="${index}">Remove</button></div>`).join('');
 }
 function persistChargeEntries(entries){
   const key=selectedCostTab;
@@ -912,35 +945,25 @@ el('addJobCharge').addEventListener('click',()=>{
 el('saveJobCharges').addEventListener('click',()=>{
   const row=currentCategoryRow();
   if(!row)return;
-  const inputs=[...row.querySelectorAll('[data-charge]')];
-  if(!inputs.every(input=>input.reportValidity()))return;
   const item=row.querySelector('select').value;
-  const amounts=Object.fromEntries(inputs.map(input=>[input.dataset.direction,amount(input.value)]));
-  if(!item||!Object.values(amounts).some(knownAmount)){
-    el('costMessage').textContent='Select an item and enter a loading or unloading amount.';
-    return;
-  }
-  const day=el('chargeDate').value;
+  const rate=amount(el('chargeRate').value);
+  const direction=el('chargeDirection').value;
+  const period=selectedChargePeriod();
   const unit=el('chargeUnit').value;
   const quantity=unit==='One-time'?1:amount(el('chargeQuantity').value);
   const vehicle=el('chargeVehicle').value;
-  const linked=activeOperations().find(o=>o.id===vehicle);
-  if(!day||!el('chargeDate').reportValidity()||!(Number.isFinite(quantity)&&quantity>0)||!chargeUnits[selectedCostTab].includes(unit)){
-    el('costMessage').textContent='Enter a valid charge date, unit and positive quantity.';
+  if(!item||!period||!knownAmount(rate)||!(Number.isFinite(quantity)&&quantity>0)||!chargeUnits[selectedCostTab].includes(unit)){
+    el('costMessage').textContent='Select an item, date or week, unit and operation. Enter a positive quantity and a valid rate.';
     return;
   }
-  if(unit==='One-time'&&knownAmount(amounts.U)&&knownAmount(amounts.L)){
-    el('costMessage').textContent='For a one-time charge, enter either the loading or unloading amount.';
-    return;
-  }
-  if(linked&&knownAmount(amounts[linked.direction==='U'?'L':'U'])){
-    el('costMessage').textContent='Use only the rate that matches the linked vehicle operation.';
-    return;
-  }
-  const entry={item,...amounts,date:day,unit,quantity,vehicle,notes:selectedCostTab==='vas'?el('vasDetails').value.trim():''};
+  const entry={item,...period,[direction]:rate,unit,quantity,vehicle,notes:selectedCostTab==='vas'?el('vasDetails').value.trim():''};
   const entries=[...categoryEntries(selectedCostTab)];
   if(editChargeIndex===null)entries.push(entry);
-  else entries[editChargeIndex]=entry;
+  else{
+    const old=entries[editChargeIndex];
+    if(knownAmount(old.U)&&knownAmount(old.L))entries.splice(editChargeIndex,1,entry,{...old,U:null});
+    else entries[editChargeIndex]=entry;
+  }
   persistChargeEntries(entries);
 });
 el('savedCategory').addEventListener('click',event=>{
