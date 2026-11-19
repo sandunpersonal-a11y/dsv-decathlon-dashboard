@@ -133,8 +133,18 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 .crew-strip-row .card,.crew-strip-row .locked{overflow-wrap:anywhere}
 .crew-strip-row .filter-field>span,.crew-strip-row .card span,.crew-strip-row .locked{font-size:clamp(.59rem,.85vw,.76rem)}
 #visitCost{padding:9px 11px}#visitCost th,#visitCost td{padding:4px 7px}
+
+#costSettings{width:min(840px,94vw);padding:10px 12px;max-height:82vh}
+#costSettings h2{font-size:1rem;margin-bottom:4px}#costSettings h3{font-size:.85rem;margin:6px 0 4px}
+#costSettings .muted,#costSettings label{font-size:.7rem;margin-bottom:4px}
+#costSettings .rate-box{padding:5px 6px}#costSettings input{padding:3px 5px;font-size:.72rem}
+#costSettings th,#costSettings td{padding:3px 4px;font-size:.7rem}
+#costSettings button{padding:3px 6px;font-size:.7rem}
+#costSettings [data-edit-pay],#costSettings [data-edit-rate]{background:#e0edff;border-color:#b1cef0;color:#204d82}
+#costSettings [data-save-pay],#costSettings [data-save-rate]{background:#dff3e7;border-color:#afd8be;color:#205c3d}
+#costSettings [data-remove-pay]{background:#fae6e5;border-color:#eac0bd;color:#923d3d}
 </style>
-<header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Day &amp; OT Cost Breakdown</small></header>
+<header><button id="openCosts" type="button" aria-haspopup="dialog">Payroll &amp; Cost Rates</button><p>GTL · GLOBAL PARK</p><h1>DSV Decathlon | Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Day &amp; OT Cost Breakdown · Automatic OT Rates</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Week<select id="week"></select></label>
@@ -173,7 +183,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </div>
 <h3>Monthly Payroll</h3>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
-<p class="muted">Default paid hours apply to all employees. OT rates apply to estimated hours outside 08:00–17:00.</p>
+<p class="muted">Default paid hours apply to all employees. OT per hour = Basic Salary ÷ 200 × 1.5.</p>
 <div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="addPay" type="button">Add Employee</button>
 <p id="costMessage" class="muted" role="status"></p>
@@ -408,6 +418,7 @@ el('applyDates').addEventListener('click',()=>commitDates(draftFrom,draftTo));
 const costStorageKey='dsv-decathlon-cost-settings-v1';
 const money=value=>new Intl.NumberFormat('en-LK',{style:'currency',currency:'LKR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
 const knownAmount=value=>Number.isFinite(value)&&value>=0;
+const overtimeRate=basic=>knownAmount(basic)?basic/200*1.5:null;
 const payrollDefaults=new Map();
 const crewRoles=[['Supervisor','supervisors'],['Tally Clerk','tally'],['Operator','operators']];
 for(const visit of operations){
@@ -446,7 +457,8 @@ function visitEstimate(visit){
     const regularRate=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
       (person.basic+person.allowance)/hours:null;
     const dayCost=time?.day===0?0:time&&regularRate!==null?regularRate*time.day/60:null;
-    const otCost=time?.ot===0?0:time&&knownAmount(person?.ot)?person.ot*time.ot/60:null;
+    const otRate=overtimeRate(person?.basic);
+    const otCost=time?.ot===0?0:time&&otRate!==null?otRate*time.ot/60:null;
     const priced=(time?.day>0&&dayCost!==null)||(time?.ot>0&&otCost!==null)||(time?.total===0);
     const complete=dayCost!==null&&otCost!==null;
     const total=(dayCost??0)+(otCost??0);
@@ -487,7 +499,7 @@ function renderVisitCost(visit,rows,direction){
   if(!visit)return;
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<h2>${operationName(visit.direction)} Cost · ${esc(visit.vehicle)}</h2>
-    <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses the saved OT per Hour rate.</p>
+    <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses Basic Salary ÷ 200 × 1.5 per hour.</p>
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
     ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
@@ -499,12 +511,14 @@ function addPayrollRow(person={},editing=false){
     <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
     <td><input aria-label="Fixed Allowance" type="number" min="0" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
     <td><output data-basic-hour>—</output></td>
-    <td><input aria-label="OT per Hour" type="number" min="0" step="any" data-field="ot" value="${esc(person.ot??'')}"${readonly}></td>
+    <td><output data-ot-hour aria-label="Calculated OT per Hour">${overtimeRate(person.basic)===null?'—':fmt(overtimeRate(person.basic),2)}</output></td>
     <td class="pay-actions"><button type="button" data-edit-pay ${editing?'disabled':''}>Edit</button><button type="button" data-save-pay ${editing?'':'disabled'}>Save</button><button type="button" data-remove-pay>Remove</button></td></tr>`);
 }
 function paintBasicHourly(row){
   const basic=amount(row.querySelector('[data-field="basic"]').value);
   const hours=costSettings.hours;
+  const ot=overtimeRate(basic);
+  row.querySelector('[data-ot-hour]').textContent=ot===null?'—':fmt(ot,2);
   row.querySelector('[data-basic-hour]').textContent=knownAmount(basic)&&hours>0?fmt(basic/hours,2):'—';
 }
 function roleOrder(person){
@@ -599,7 +613,7 @@ el('payrollRows').addEventListener('click',event=>{
   }
   if(previous&&previous!==person.epf)removed.add(previous);
   removed.delete(person.epf);
-  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0,ot:amount(person.ot)});
+  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0});
   if(saveCosts({...costSettings,payroll,removed:[...removed]})){
     row.dataset.epf=person.epf;
     setEditing(row,fields,false,'[data-edit-pay]','[data-save-pay]');
