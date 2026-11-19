@@ -149,8 +149,19 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 #costSummary:not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))}
 .job-context{background:#e8f2fa;color:#1a4765;padding:5px 8px;border-radius:5px;font-size:.75rem;font-weight:700}
 #saveJobCharges{width:auto;margin:5px 0;background:#dff3e7;border-color:#afd8be;color:#205c3d}
+
+.job-header-actions{float:right;display:flex;align-items:center;gap:7px;margin:0 0 6px 8px}
+#openCosts{float:none;margin:0}#activeJobBadge{border:1px solid #93c1cd;border-radius:5px;padding:5px 7px;font-size:.72rem;color:#fff;white-space:nowrap}
+#costSettings{inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:#f2f6fa}
+#costForm{max-width:1080px;margin:0 auto;padding:16px}
+.cost-page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 12px;background:#133551;color:white;border-radius:8px}
+.cost-page-header .job-context{margin:3px 0 0}.cost-page-header button{width:auto}
+#costSections{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0}
+#costSections button{width:auto;padding:6px 9px;background:white;color:#1d4c70;border-color:#b8d0e0}
+#costSections button[aria-pressed="true"]{background:#1d5276;color:#fff;border-color:#1d5276}
+#payrollCostSection,#areaCostSection,#operatingCostSection{background:white;border:1px solid #d8e4ef;border-radius:8px;padding:10px;margin-bottom:8px}
 </style>
-<header><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button><p>GTL · GLOBAL PARK <span id="activeJobBadge" style="display:inline-block;margin-left:6px;padding:3px 7px;border:1px solid #93c1cd;border-radius:4px;color:#fff;letter-spacing:0"></span></p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
+<header><div class="job-header-actions"><span id="activeJobBadge"></span><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
 <section class="panel filters" aria-label="Dashboard filters">
 <label>Customer<select id="customer"></select></label>
@@ -182,24 +193,28 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </dialog>
 <dialog id="costSettings" aria-labelledby="costTitle">
 <form id="costForm">
-<h2 id="costTitle">Job Costing</h2><p id="jobCostContext" class="job-context"></p>
+<div class="cost-page-header"><div><h2 id="costTitle">Job Costing</h2><p id="jobCostContext" class="job-context"></p></div><button id="cancelCosts" type="button">← Back to Dashboard</button></div>
+<nav id="costSections" aria-label="Cost categories"></nav>
 <p class="muted">Enter monthly payroll in LKR. Rates and payroll are saved in this browser.</p>
-<h3>Storage &amp; Space</h3>
+<section id="areaCostSection"><h3>Storage / Area Rates</h3>
 <div class="cost-inputs">
 <section class="rate-box" data-rate="unload"><label>Unloading · LKR / ft²<input name="unload" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 <section class="rate-box" data-rate="load"><label>Loading · LKR / ft²<input name="load" type="number" min="0" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 </div>
-<h3>Labour &amp; Monthly Payroll</h3>
+</section>
+<section id="payrollCostSection"><h3>Labour Payroll</h3>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 <p class="muted">Default paid hours apply to all employees. OT per hour = Basic Salary ÷ 200 × 1.5.</p>
 <div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="addPay" type="button">Add Employee</button>
-<h3>Other Operating Costs</h3>
+</section>
+<section id="operatingCostSection" hidden><h3 id="chargeSectionTitle">Operating Costs</h3>
 <p class="muted">Enter standard LKR amounts per visit. Leave a field blank when it does not apply. Storage area and additional storage charges are added separately.</p>
 <div class="scroll"><table><thead><tr><th>Category</th><th>Unloading (LKR / visit)</th><th>Loading (LKR / visit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
-<button id="saveJobCharges" type="button">Save Operating Costs</button>
+<button id="saveJobCharges" type="button">Save Category</button>
+</section>
 <p id="costMessage" class="muted" role="status"></p>
-<div class="cost-actions"><button id="cancelCosts" type="button">Close</button></div>
+
 </form>
 </dialog>
 <dialog id="rangeDialog" aria-labelledby="calendarTitle">
@@ -450,6 +465,24 @@ const money=value=>new Intl.NumberFormat('en-LK',{style:'currency',currency:'LKR
 const knownAmount=value=>Number.isFinite(value)&&value>=0;
 const overtimeRate=basic=>knownAmount(basic)?basic/200*1.5:null;
 const crewRoles=[['Supervisor','supervisors'],['Tally Clerk','tally'],['Operator','operators']];
+const costTabs=[['payroll','Labour Payroll'],['storage','Storage / Area'],...chargeCategories.filter(([key])=>key!=='storage')];
+let selectedCostTab='payroll';
+function selectCostTab(key){
+  selectedCostTab=key;
+  el('payrollCostSection').hidden=key!=='payroll';
+  el('areaCostSection').hidden=key!=='storage';
+  el('operatingCostSection').hidden=key==='payroll';
+  el('chargeSectionTitle').textContent=key==='storage'?'Additional Storage Charges':costTabs.find(item=>item[0]===key)[1];
+  for(const button of el('costSections').querySelectorAll('button')){
+    button.setAttribute('aria-pressed',String(button.dataset.costTab===key));
+  }
+  for(const row of el('jobCharges').rows)row.hidden=row.dataset.category!==key;
+}
+el('costSections').innerHTML=costTabs.map(([key,label])=>`<button type="button" data-cost-tab="${key}" aria-pressed="false">${esc(label)}</button>`).join('');
+el('costSections').addEventListener('click',event=>{
+  const button=event.target.closest('[data-cost-tab]');
+  if(button)selectCostTab(button.dataset.costTab);
+});
 function defaultPayrollForJob(){
 const payrollDefaults=new Map();
 for(const visit of activeOperations()){
@@ -621,16 +654,18 @@ el('payrollPinForm').addEventListener('submit',event=>{
   el('costMessage').textContent='';
   el('jobCostContext').textContent=`${el('customer').value} · Job ${el('job').value}`;
   el('jobCharges').innerHTML=chargeCategories.map(([key,label])=>
-    `<tr><th scope="row">${esc(label)}</th>${['U','L'].map(direction=>`<td><input type="number" min="0" step="any" aria-label="${esc(operationName(direction)+' '+label)}" data-charge="${key}" data-direction="${direction}" value="${esc(costSettings.charges?.[direction]?.[key]??'')}"></td>`).join('')}</tr>`).join('');
+    `<tr data-category="${key}"><th scope="row">${esc(label)}</th>${['U','L'].map(direction=>`<td><input type="number" min="0" step="any" aria-label="${esc(operationName(direction)+' '+label)}" data-charge="${key}" data-direction="${direction}" value="${esc(costSettings.charges?.[direction]?.[key]??'')}"></td>`).join('')}</tr>`).join('');
+  selectCostTab('payroll');
+  el('costSettings').scrollTop=0;
   el('costSettings').showModal();
 });
 el('addPay').addEventListener('click',()=>addPayrollRow({},true));
 el('cancelCosts').addEventListener('click',()=>el('costSettings').close());
 const amount=value=>value===''?null:Number(value);
 el('saveJobCharges').addEventListener('click',()=>{
-  const inputs=[...el('jobCharges').querySelectorAll('[data-charge]')];
+  const inputs=[...el('jobCharges').querySelectorAll('[data-charge]')].filter(input=>input.dataset.charge===selectedCostTab);
   if(!inputs.every(input=>input.reportValidity()))return;
-  const charges={U:{},L:{}};
+  const charges={U:{...costSettings.charges?.U},L:{...costSettings.charges?.L}};
   for(const input of inputs)charges[input.dataset.direction][input.dataset.charge]=amount(input.value);
   saveCosts({...costSettings,charges});
 });
