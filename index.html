@@ -262,6 +262,19 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 .operator-hours span{background:#fff9;border-radius:4px;padding:3px 5px}
 #timelines[hidden]{display:none}
 @media(max-width:720px){.operation-pair{grid-template-columns:minmax(0,1fr)}}
+
+.operation-timeline .time-band{height:9px;box-shadow:inset 0 1px 2px #142f5030,0 2px 2px #142f5020}
+.operation-timeline .time-band i:first-child{background:linear-gradient(#50b499,#238168)}
+.operation-timeline .time-band i:last-child{background:linear-gradient(#f8c886,#d38c40)}
+.operation-timeline .time-band i{animation:timeline-fill 300ms ease-out both}
+@keyframes timeline-fill{from{width:0}}
+@media(prefers-reduced-motion:reduce){.operation-timeline .time-band i{animation:none}}
+#visitCost .operation-timeline{margin:0 0 5px;padding:3px 0;border:0;background:transparent}
+#visitCost .operation-timeline p{margin:0 0 4px}
+#visitCost .charge-list{margin-top:4px}
+#visitCost .charge-mini{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,.65fr)}
+#visitCost .charge-mini>div{grid-column:auto}
+#visitCost .charge-mini>div:last-child{justify-content:flex-end}
 </style>
 <header><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
 <label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></header>
@@ -277,7 +290,6 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 </section>
 <p id="range" class="muted" aria-live="polite"></p>
 <section id="cards" class="cards" aria-label="Operations summary"></section>
-<section class="chart-grid" id="timelines" aria-label="Operation timeline charts"></section>
 <section class="chart-grid" id="charts" aria-label="Operations charts"></section>
 <section class="panel"><h2>Vehicle Operations Register</h2><p class="muted">Select a Dept Reg No. to view all GRN/GDN numbers, crew EPF references and cargo lines. Times are Sri Lanka local time.</p><div class="scroll"><table>
 <thead><tr><th>Dept Reg No.</th><th>GRN/GDN No.</th><th>Vehicle</th><th>Container</th><th>Type</th><th>Operation</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Heads</th><th>CBM</th><th>Est. Unloading Area (sq ft)</th></tr></thead><tbody id="register"></tbody></table></div></section>
@@ -401,7 +413,6 @@ function timelineCard(rows,direction,selected){
   const times=rows.map(o=>splitWorkingMinutes(o.start,o.end)).filter(Boolean);
   const day=sum(times,'day'),ot=sum(times,'ot'),total=day+ot;
   return `<article class="panel operation-timeline">
-    <h2>${operationName(direction)} Timeline</h2>
     <p class="muted">${selected?`${esc(stamp(selected.start))} → ${esc(stamp(selected.end))}`:`${rows.length} vehicles · combined elapsed time`}</p>
     ${total?`<div class="time-band" aria-hidden="true"><i style="width:${100*day/total}%"></i><i style="width:${100*ot/total}%"></i></div>`:''}
     <div class="time-labels">${day?`<span>Day <b>${duration(day)}</b></span>`:''}${ot?`<span>OT <b>${duration(ot)}</b></span>`:''}<span>Total <b>${times.length?duration(total):'—'}</b></span></div>
@@ -476,12 +487,10 @@ function render() {
     ];
     const theme=d==='U'?'unloading':'loading';
     return `<div class="operation-pair">
-      <section class="kpi-group ${theme}"><h2>${label}</h2>${selected?'<section id="visitCost" class="panel" aria-label="Selected crew costs"></section>':timelineCard(items,d,null)+staffing(items)+operatorTime(items)}</section>
+      <section class="kpi-group ${theme}"><h2>${label} Timeline</h2>${selected?'<section id="visitCost" class="panel" aria-label="Selected crew costs"></section>':timelineCard(items,d,null)+staffing(items)+operatorTime(items)}</section>
       <section class="kpi-group ${theme} operation-cost"><h2>${label} Costs</h2><div class="kpi-row">${metrics.join('')}</div><div class="timeline-costs" id="cost-${d}"></div></section>
     </div>`;
   }).join('');
-  el('timelines').hidden=!selected;
-  el('timelines').innerHTML=selected?timelineCard(rows,selected.direction,selected):'';
   for(const d of directions)renderVisitCost(selected,rows.filter(o=>o.direction===d),d);
   const chartMax=Math.max(1,...['U','L'].flatMap(d=>['LRY','20GP','40HC'].map(kind=>average(context.filter(o=>o.direction===d&&o.kind===kind)))));
   el('charts').innerHTML=['U','L'].map(d=>averageTimeChart(context,d,chartMax)).join('');
@@ -695,14 +704,15 @@ function renderVisitCost(visit,rows,direction){
     tile('Total Cost',hasLabour||hasArea||operatingCost>0?money(labour+areaCost+operatingCost):'—',complete?'Estimated total':'Known costs only');
   if(!visit)return;
   const chargeDetails=chargeCategories.flatMap(([key,label])=>categoryEntries(key).filter(entry=>knownAmount(entry[visit.direction])).map(entry=>
-    `<span><strong>${esc(label)}${entry.item?' · '+esc(entry.item):''}</strong> ${money(entry[visit.direction])}${entry.notes?' · '+esc(entry.notes):''}</span>`)).join('');
+    `<article class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.item||'—')}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(entry[visit.direction])}</strong></div></article>`)).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<div class="visit-time-heading"><span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
-    <p class="visit-dates">${esc(stamp(visit.start))} → ${esc(stamp(visit.end))}</p>
+    <div class="crew-counts time-chip"><span>${operationName(visit.direction)} Time <b>${duration(visit.minutes)}</b></span></div>
+    ${timelineCard([visit],visit.direction,visit)}
     ${personRows?`<div class="crew-mini-grid">${personRows}</div>`:'<p class="muted">No matching crew EPF records.</p>'}
-    <div class="crew-counts"><span>${operationName(visit.direction)} Time <b>${duration(visit.minutes)}</b></span>${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
+    <div class="crew-counts">${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
-    ${chargeDetails?`<div class="cost-totals">${chargeDetails}</div>`:''}
+    ${chargeDetails?`<div class="crew-mini-grid charge-list" aria-label="Additional cost items">${chargeDetails}</div>`:''}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
 }
 function addPayrollRow(person={},editing=false){
