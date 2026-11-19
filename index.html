@@ -160,6 +160,13 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 #costSections button{width:auto;padding:6px 9px;background:white;color:#1d4c70;border-color:#b8d0e0}
 #costSections button[aria-pressed="true"]{background:#1d5276;color:#fff;border-color:#1d5276}
 #payrollCostSection,#areaCostSection,#operatingCostSection{background:white;border:1px solid #d8e4ef;border-radius:8px;padding:10px;margin-bottom:8px}
+
+.cost-page-header{position:sticky;top:0;z-index:2;box-shadow:0 3px 8px #18364e30;align-items:center}
+#costSettings #cancelCosts{background:#eaf4ff;border-color:#b5cee1;color:#1c4363;padding:7px 10px;font-weight:750}
+#jobCharges select{min-width:130px;padding:4px 5px;font-size:.72rem}
+#vasDetailsField:not([hidden]){display:block;margin-top:8px}
+#vasDetails{display:block;width:100%;margin-top:3px;padding:6px;border:1px solid #b8d0e0;border-radius:5px;font:inherit;resize:vertical}
+.vas-notes{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>
 <header><div class="job-header-actions"><span id="activeJobBadge"></span><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Vehicle &amp; Cargo Operations Dashboard</h1><small>Loading performance, unloading throughput and crew deployment · Customer &amp; Job Costing</small></header>
 <main>
@@ -193,7 +200,7 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </dialog>
 <dialog id="costSettings" aria-labelledby="costTitle">
 <form id="costForm">
-<div class="cost-page-header"><div><h2 id="costTitle">Job Costing</h2><p id="jobCostContext" class="job-context"></p></div><button id="cancelCosts" type="button">← Back to Dashboard</button></div>
+<div class="cost-page-header"><div><h2 id="costTitle">Job Costing</h2><p id="jobCostContext" class="job-context"></p></div><button id="cancelCosts" type="button"><span aria-hidden="true">←</span> Back to Dashboard</button></div>
 <nav id="costSections" aria-label="Cost categories"></nav>
 <p class="muted">Enter monthly payroll in LKR. Rates and payroll are saved in this browser.</p>
 <section id="areaCostSection"><h3>Storage / Area Rates</h3>
@@ -210,7 +217,8 @@ header h1{font-size:clamp(1rem,2.2vw,1.5rem);margin:.35rem 0}
 </section>
 <section id="operatingCostSection" hidden><h3 id="chargeSectionTitle">Operating Costs</h3>
 <p class="muted">Enter standard LKR amounts per visit. Leave a field blank when it does not apply. Storage area and additional storage charges are added separately.</p>
-<div class="scroll"><table><thead><tr><th>Category</th><th>Unloading (LKR / visit)</th><th>Loading (LKR / visit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Category</th><th>Item / Service</th><th>Unloading (LKR / visit)</th><th>Loading (LKR / visit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
+<label id="vasDetailsField" hidden>VAS / Rework Details<textarea id="vasDetails" rows="3" maxlength="1000" placeholder="Describe the work, quantity or special instructions"></textarea></label>
 <button id="saveJobCharges" type="button">Save Category</button>
 </section>
 <p id="costMessage" class="muted" role="status"></p>
@@ -466,12 +474,20 @@ const knownAmount=value=>Number.isFinite(value)&&value>=0;
 const overtimeRate=basic=>knownAmount(basic)?basic/200*1.5:null;
 const crewRoles=[['Supervisor','supervisors'],['Tally Clerk','tally'],['Operator','operators']];
 const costTabs=[['payroll','Labour Payroll'],['storage','Storage / Area'],...chargeCategories.filter(([key])=>key!=='storage')];
+const categoryOptions={
+  equipment:['Forklift','Reach Truck','Pallet Jack','Hand Trolley','Loading Ramp','Weighing Scale','Other Equipment'],
+  consumables:['Stretch Film','Tape','Labels','Straps','Cartons','Pallets','Dunnage','Other Consumable'],
+  storage:['Staging Area','Pallet Position','Ambient Storage','Bonded Storage','Cold Storage','Other Storage'],
+  vas:['Stickering','Repacking','Sorting','Palletizing','Quality Inspection','Rework','Other VAS'],
+  thirdParty:['Outsourced Labour','Hired Equipment','External Inspection','Transport','Other Service']
+};
 let selectedCostTab='payroll';
 function selectCostTab(key){
   selectedCostTab=key;
   el('payrollCostSection').hidden=key!=='payroll';
   el('areaCostSection').hidden=key!=='storage';
   el('operatingCostSection').hidden=key==='payroll';
+  el('vasDetailsField').hidden=key!=='vas';
   el('chargeSectionTitle').textContent=key==='storage'?'Additional Storage Charges':costTabs.find(item=>item[0]===key)[1];
   for(const button of el('costSections').querySelectorAll('button')){
     button.setAttribute('aria-pressed',String(button.dataset.costTab===key));
@@ -579,13 +595,17 @@ function renderVisitCost(visit,rows,direction){
     tile('Total Cost',hasLabour||hasArea||operatingCost>0?money(labour+areaCost+operatingCost):'—',complete?'Estimated total':'Known costs only');
   if(!visit)return;
   const charges=costSettings.charges?.[visit.direction]??{};
-  const chargeDetails=chargeCategories.filter(([key])=>knownAmount(charges[key])).map(([key,label])=>`<span><strong>${esc(label)}</strong> ${money(charges[key])}</span>`).join('');
+  const chargeDetails=chargeCategories.filter(([key])=>knownAmount(charges[key])).map(([key,label])=>{
+    const item=costSettings.chargeItems?.[key];
+    return `<span><strong>${esc(label)}${item?' · '+esc(item):''}</strong> ${money(charges[key])}</span>`;
+  }).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<h2>${operationName(visit.direction)} Cost · ${esc(visit.vehicle)}</h2>
     <p class="muted">Hours are estimated from the visit start and end for each listed EPF. Day cost uses the regular payroll rate. OT cost uses Basic Salary ÷ 200 × 1.5 per hour.</p>
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF record(s) missing an applicable rate or working hours. ':''}${crewGap?'Recorded head count is '+esc(visit.heads)+' and listed unique EPFs total '+assigned.size+'. ':''}</p>`:''}
     ${personRows?`<div class="scroll"><table><thead><tr><th>Role</th><th>EPF</th>${showDay?'<th>Day Hours</th><th>Day Cost</th>':''}${showOT?'<th>OT Hours</th><th>OT Cost</th>':''}<th>Labour Cost</th></tr></thead><tbody>${personRows}</tbody></table></div>`:'<p class="muted">No matching crew EPF records.</p>'}
     ${chargeDetails?`<div class="cost-totals">${chargeDetails}</div>`:''}
+    ${knownAmount(charges.vas)&&costSettings.vasDetails?`<p class="muted vas-notes">VAS / Rework details · ${esc(costSettings.vasDetails)}</p>`:''}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
 }
 function addPayrollRow(person={},editing=false){
@@ -654,7 +674,8 @@ el('payrollPinForm').addEventListener('submit',event=>{
   el('costMessage').textContent='';
   el('jobCostContext').textContent=`${el('customer').value} · Job ${el('job').value}`;
   el('jobCharges').innerHTML=chargeCategories.map(([key,label])=>
-    `<tr data-category="${key}"><th scope="row">${esc(label)}</th>${['U','L'].map(direction=>`<td><input type="number" min="0" step="any" aria-label="${esc(operationName(direction)+' '+label)}" data-charge="${key}" data-direction="${direction}" value="${esc(costSettings.charges?.[direction]?.[key]??'')}"></td>`).join('')}</tr>`).join('');
+    `<tr data-category="${key}"><th scope="row">${esc(label)}</th><td><select data-charge-item="${key}" aria-label="${esc(label)} item"><option value="">Select item</option>${categoryOptions[key].map(item=>`<option value="${esc(item)}" ${costSettings.chargeItems?.[key]===item?'selected':''}>${esc(item)}</option>`).join('')}</select></td>${['U','L'].map(direction=>`<td><input type="number" min="0" step="any" aria-label="${esc(operationName(direction)+' '+label)}" data-charge="${key}" data-direction="${direction}" value="${esc(costSettings.charges?.[direction]?.[key]??'')}"></td>`).join('')}</tr>`).join('');
+  el('vasDetails').value=costSettings.vasDetails??'';
   selectCostTab('payroll');
   el('costSettings').scrollTop=0;
   el('costSettings').showModal();
@@ -667,7 +688,10 @@ el('saveJobCharges').addEventListener('click',()=>{
   if(!inputs.every(input=>input.reportValidity()))return;
   const charges={U:{...costSettings.charges?.U},L:{...costSettings.charges?.L}};
   for(const input of inputs)charges[input.dataset.direction][input.dataset.charge]=amount(input.value);
-  saveCosts({...costSettings,charges});
+  const item=el('jobCharges').querySelector(`[data-charge-item="${selectedCostTab}"]`);
+  const chargeItems={...costSettings.chargeItems,[selectedCostTab]:item?.value??''};
+  const vasDetails=selectedCostTab==='vas'?el('vasDetails').value.trim():costSettings.vasDetails;
+  saveCosts({...costSettings,charges,chargeItems,vasDetails});
 });
 el('costForm').addEventListener('submit',event=>event.preventDefault());
 el('costForm').addEventListener('click',event=>{
