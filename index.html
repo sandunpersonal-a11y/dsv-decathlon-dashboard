@@ -275,6 +275,23 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 #visitCost .charge-mini{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,.65fr)}
 #visitCost .charge-mini>div{grid-column:auto}
 #visitCost .charge-mini>div:last-child{justify-content:flex-end}
+
+.operation-cost .kpi-row,.operation-cost .timeline-costs{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,122px),1fr));
+}
+.operation-cost .kpi-row>article>strong,.operation-cost .timeline-costs>article>strong{
+  display:block;
+  font-size:var(--fitted-kpi-size,.92rem);
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:normal;
+  font-variant-numeric:tabular-nums;
+}
+
+.charge-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:5px;margin-top:6px}
+.charge-fields output{display:block;padding:4px;margin-top:2px;background:#eaf2fa;border-radius:4px}
+.dated-breakdown{grid-column:1/-1;font-size:.7rem;padding:3px 5px}
+.dated-breakdown p{margin:3px 0}
 </style>
 <header><div class="job-header-actions"><div class="header-scope"><label><span>Customer</span><select id="customer"></select></label>
 <label><span>Job</span><select id="job"></select></label></div><button id="openCosts" type="button" aria-haspopup="dialog"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>Job Costing</button></div><p>GTL · GLOBAL PARK</p><h1>Warehouse Operations &amp; Job Costing</h1><small>Vehicle turnaround, crew hours and job costs</small></header>
@@ -321,8 +338,16 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 <button id="addPay" type="button">Add Employee</button>
 </section>
 <section id="operatingCostSection" hidden><h3 id="chargeSectionTitle">Operating Costs</h3>
-<p class="muted">Enter standard LKR amounts per visit. Leave a field blank when it does not apply. Storage area and additional storage charges are added separately.</p>
-<div class="scroll"><table><thead><tr><th>Category</th><th>Item / Service</th><th>Unloading (LKR / visit)</th><th>Loading (LKR / visit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
+<p class="muted">Enter quantity and LKR per unit for the applicable operation. Each dated charge is counted once.</p>
+<div class="scroll"><table><thead><tr><th>Category</th><th>Item / Service</th><th>Unloading (LKR / unit)</th><th>Loading (LKR / unit)</th></tr></thead><tbody id="jobCharges"></tbody></table></div>
+<div class="charge-fields">
+<label>Charge Date<input id="chargeDate" type="date" required></label>
+<label>ISO Week<output id="chargeWeek">—</output></label>
+<label>Charge Unit<select id="chargeUnit"></select></label>
+<label>Quantity<input id="chargeQuantity" type="number" min="0.001" step="any"></label>
+<label>Vehicle Operation<select id="chargeVehicle"></select></label>
+</div>
+<p id="chargePreview" class="muted" aria-live="polite"></p>
 <label id="vasDetailsField" hidden>VAS / Rework Details<textarea id="vasDetails" rows="3" maxlength="1000" placeholder="Describe the work, quantity or special instructions"></textarea></label>
 <div class="category-actions"><button id="addJobCharge" type="button">Add Item</button><button id="saveJobCharges" type="button">Save Item</button></div>
 <div id="savedCategory" aria-live="polite"></div>
@@ -378,11 +403,13 @@ const weekNumber = mondayDate => {
   const january=date(thursday.getUTCFullYear()+'-01-01');
   return Math.ceil((((thursday-january)/86400000)+1)/7);
 };
-function updateWeeks(){
-  const weeks=[...new Set(activeOperations().map(o=>monday(o.start.slice(0,10))))].sort().reverse();
+function updateWeeks(chargeDates=[],keepSelection=false){
+  const previous=el('week').value;
+  const dates=[...activeOperations().map(o=>o.start.slice(0,10)),...chargeDates];
+  const weeks=[...new Set(dates.map(monday))].sort().reverse();
   el('week').innerHTML = '<option value="">All Week</option>'+weeks.map(w=>
   `<option value="${w}">${weekNumber(w)}</option>`).join('');
-  el('week').value='';
+  el('week').value=keepSelection&&weeks.includes(previous)?previous:'';
 }
 updateWeeks();
 const sum = (rows,key) => rows.reduce((total,row)=>total+row[key],0);
@@ -492,6 +519,7 @@ function render() {
     </div>`;
   }).join('');
   for(const d of directions)renderVisitCost(selected,rows.filter(o=>o.direction===d),d);
+  fitKpiValues();
   const chartMax=Math.max(1,...['U','L'].flatMap(d=>['LRY','20GP','40HC'].map(kind=>average(context.filter(o=>o.direction===d&&o.kind===kind)))));
   el('charts').innerHTML=['U','L'].map(d=>averageTimeChart(context,d,chartMax)).join('');
   el('register').innerHTML=rows.map(o=>`<tr><td><button class="oplink" data-reg="${o.id}">${o.reg}</button></td>${[o.cargo.length===1?o.cargo[0].document:`${o.cargo[0].document} +${o.cargo.length-1}`,o.vehicle,o.container,o.kind,operationName(o.direction),stamp(o.start),stamp(o.end),duration(o.minutes),o.heads,fmt(o.cbm,3),o.direction==='U'?fmt(estimatedArea(o.cbm),2):'—'].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12">No matching operations.</td></tr>';
@@ -635,11 +663,13 @@ function readCosts(){
   return {hours:null,unload:null,load:null,payroll:defaultPayroll};
 }
 let costSettings=readCosts();
+const refreshCostWeeks=keepSelection=>updateWeeks(chargeCategories.flatMap(([key])=>categoryEntries(key).map(entry=>entry.date).filter(Boolean)),keepSelection);
+
 function changeJob(){
   from=to='';
   for(const id of ['direction','kind','vehicle'])el(id).value='';
-  updateWeeks();
   costSettings=readCosts();
+  refreshCostWeeks(false);
   render();
 }
 el('customer').addEventListener('change',()=>{updateJobs();changeJob();});
@@ -691,7 +721,8 @@ function renderVisitCost(visit,rows,direction){
   const estimates=rows.map(visitEstimate);
   const labour=estimates.reduce((n,e)=>n+e.labour,0);
   const areaCost=estimates.reduce((n,e)=>n+(e.areaCost??0),0);
-  const operatingCost=estimates.reduce((n,e)=>n+e.operatingCost,0);
+  const dated=datedCharges(rows,direction,visit);
+  const operatingCost=estimates.reduce((n,e)=>n+e.operatingCost,0)+dated.reduce((n,item)=>n+item.total,0);
   const hasLabour=estimates.some(e=>e.priced);
   const hasArea=estimates.some(e=>e.areaCost!==null);
   const complete=estimates.length>0&&estimates.every(e=>!e.missing&&!e.crewGap&&e.areaCost!==null);
@@ -702,8 +733,12 @@ function renderVisitCost(visit,rows,direction){
     tile('Labour Cost',hasLabour?money(labour):'—','Estimated crew cost')+
     (operatingCost>0?tile('Other Operating Costs',money(operatingCost),'Equipment, materials and services'):'')+
     tile('Total Cost',hasLabour||hasArea||operatingCost>0?money(labour+areaCost+operatingCost):'—',complete?'Estimated total':'Known costs only');
+  if(!visit&&dated.length){
+    summary.innerHTML+=`<details class="dated-breakdown"><summary>Dated charge breakdown</summary>${dated.map(({label,entry,total})=>
+      `<p>${esc(entry.date)} · ${esc(label)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)} · <strong>${money(total)}</strong></p>`).join('')}</details>`;
+  }
   if(!visit)return;
-  const chargeDetails=chargeCategories.flatMap(([key,label])=>categoryEntries(key).filter(entry=>knownAmount(entry[visit.direction])).map(entry=>
+  const chargeDetails=chargeCategories.flatMap(([key,label])=>categoryEntries(key).filter(entry=>!entry.date&&knownAmount(entry[visit.direction])).map(entry=>
     `<article class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.item||'—')}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(entry[visit.direction])}</strong></div></article>`)).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<div class="visit-time-heading"><span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
@@ -713,6 +748,7 @@ function renderVisitCost(visit,rows,direction){
     <div class="crew-counts">${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
     ${missing||crewGap?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
     ${chargeDetails?`<div class="crew-mini-grid charge-list" aria-label="Additional cost items">${chargeDetails}</div>`:''}
+    ${dated.map(({label,entry,total})=>`<div class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.date)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(total)}</strong></div></div>`).join('')}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
 }
 function addPayrollRow(person={},editing=false){
@@ -744,6 +780,7 @@ function saveCosts(updated){
     return false;
   }
   costSettings=updated;
+  refreshCostWeeks(true);
   el('costMessage').textContent='Saved. Dashboard costs updated.';
   render();
   return true;
@@ -803,24 +840,65 @@ function categoryEntries(key){
   const notes=key==='vas'?costSettings.vasDetails??'':'';
   return item||knownAmount(U)||knownAmount(L)||notes?[{item,U,L,notes}]:[];
 }
+const chargeUnits={
+  equipment:['Hours','Days','One-time'],
+  consumables:['Units','Rolls','Cartons','Pallets','Kilograms'],
+  storage:['sq ft','sq ft-days','Pallet Positions','Pallet-days','CBM','One-time'],
+  vas:['CBM','Cartons','Units','Pallets','Hours','One-time'],
+  thirdParty:['Service','Hours','Days','Trips','One-time']
+};
+function chargeTotal(entry,direction){
+  if(!knownAmount(entry[direction]))return null;
+  return entry[direction]*(entry.date?entry.quantity:1);
+}
+function datedCharges(rows,direction,visit){
+  const ids=new Set(rows.map(row=>row.id));
+  const filterType=el('kind').value;
+  if(from&&to&&from>to)return [];
+  return chargeCategories.flatMap(([key,label])=>categoryEntries(key)
+    .filter(entry=>entry.date&&(!from||entry.date>=from)&&(!to||entry.date<=to)&&knownAmount(entry[direction])&&
+      (visit?entry.vehicle===visit.id:filterType?ids.has(entry.vehicle):true))
+    .map(entry=>({label,entry,total:chargeTotal(entry,direction)})));
+}
+function refreshChargePreview(){
+  const day=el('chargeDate').value;
+  const week=day?monday(day):null;
+  el('chargeWeek').textContent=day?`${addDays(week,3).slice(0,4)} · W${weekNumber(week)}`:'—';
+  const one=el('chargeUnit').value==='One-time';
+  el('chargeQuantity').readOnly=one;
+  if(one)el('chargeQuantity').value='1';
+  const qty=amount(el('chargeQuantity').value);
+  const row=currentCategoryRow();
+  const totals=row?[...row.querySelectorAll('[data-charge]')].filter(input=>knownAmount(amount(input.value))&&qty>0)
+    .map(input=>operationName(input.dataset.direction)+' '+money(qty*amount(input.value))):[];
+  el('chargePreview').textContent=totals.join(' · ');
+}
+for(const id of ['chargeDate','chargeUnit','chargeQuantity','jobCharges'])el(id).addEventListener('input',refreshChargePreview);
 function fillChargeEditor(entry={}){
   const row=currentCategoryRow();
   if(!row)return;
   row.querySelector('select').value=entry.item??'';
+  el('chargeDate').value=entry.date??'';
+  el('chargeUnit').innerHTML=optionList(chargeUnits[selectedCostTab]);
+  el('chargeUnit').value=entry.unit??chargeUnits[selectedCostTab][0];
+  el('chargeQuantity').value=entry.quantity??1;
+  el('chargeVehicle').innerHTML='<option value="">Job-wide charge</option>'+activeOperations().map(o=>`<option value="${esc(o.id)}">${esc(operationName(o.direction)+' · '+visitLabel(o))}</option>`).join('');
+  el('chargeVehicle').value=entry.vehicle??'';
   for(const input of row.querySelectorAll('[data-charge]'))input.value=entry[input.dataset.direction]??'';
   if(selectedCostTab==='vas')el('vasDetails').value=entry.notes??'';
+  refreshChargePreview();
 }
 function refreshCategory(){
   editChargeIndex=null;
   fillChargeEditor();
   el('saveJobCharges').textContent='Save Item';
-  el('savedCategory').innerHTML=categoryEntries(selectedCostTab).map((entry,index)=>`<div class="saved-category"><span><strong>${esc(entry.item||'Saved item')}</strong> · Unloading ${knownAmount(entry.U)?money(entry.U):'—'} · Loading ${knownAmount(entry.L)?money(entry.L):'—'}${entry.notes?' · '+esc(entry.notes):''}</span><button type="button" data-edit-charge="${index}">Edit</button><button type="button" data-remove-charge="${index}">Remove</button></div>`).join('');
+  el('savedCategory').innerHTML=categoryEntries(selectedCostTab).map((entry,index)=>`<div class="saved-category"><span><strong>${esc(entry.item||'Saved item')}</strong> · ${entry.date?esc(entry.date)+' · W'+weekNumber(monday(entry.date))+' · '+fmt(entry.quantity,3)+' '+esc(entry.unit):'Legacy per vehicle'} · Unloading ${knownAmount(entry.U)?money(chargeTotal(entry,'U')):'—'} · Loading ${knownAmount(entry.L)?money(chargeTotal(entry,'L')):'—'}${entry.notes?' · '+esc(entry.notes):''}</span><button type="button" data-edit-charge="${index}">Edit</button><button type="button" data-remove-charge="${index}">Remove</button></div>`).join('');
 }
 function persistChargeEntries(entries){
   const key=selectedCostTab;
   const charges={U:{...costSettings.charges?.U},L:{...costSettings.charges?.L}};
   for(const d of ['U','L']){
-    const amounts=entries.map(entry=>entry[d]).filter(knownAmount);
+    const amounts=entries.filter(entry=>!entry.date).map(entry=>entry[d]).filter(knownAmount);
     charges[d][key]=amounts.length?amounts.reduce((total,value)=>total+value,0):null;
   }
   if(saveCosts({...costSettings,charges,chargeEntries:{...costSettings.chargeEntries,[key]:entries}}))refreshCategory();
@@ -842,7 +920,24 @@ el('saveJobCharges').addEventListener('click',()=>{
     el('costMessage').textContent='Select an item and enter a loading or unloading amount.';
     return;
   }
-  const entry={item,...amounts,notes:selectedCostTab==='vas'?el('vasDetails').value.trim():''};
+  const day=el('chargeDate').value;
+  const unit=el('chargeUnit').value;
+  const quantity=unit==='One-time'?1:amount(el('chargeQuantity').value);
+  const vehicle=el('chargeVehicle').value;
+  const linked=activeOperations().find(o=>o.id===vehicle);
+  if(!day||!el('chargeDate').reportValidity()||!(Number.isFinite(quantity)&&quantity>0)||!chargeUnits[selectedCostTab].includes(unit)){
+    el('costMessage').textContent='Enter a valid charge date, unit and positive quantity.';
+    return;
+  }
+  if(unit==='One-time'&&knownAmount(amounts.U)&&knownAmount(amounts.L)){
+    el('costMessage').textContent='For a one-time charge, enter either the loading or unloading amount.';
+    return;
+  }
+  if(linked&&knownAmount(amounts[linked.direction==='U'?'L':'U'])){
+    el('costMessage').textContent='Use only the rate that matches the linked vehicle operation.';
+    return;
+  }
+  const entry={item,...amounts,date:day,unit,quantity,vehicle,notes:selectedCostTab==='vas'?el('vasDetails').value.trim():''};
   const entries=[...categoryEntries(selectedCostTab)];
   if(editChargeIndex===null)entries.push(entry);
   else entries[editChargeIndex]=entry;
@@ -907,6 +1002,32 @@ el('payrollRows').addEventListener('click',event=>{
     setEditing(row,fields,false,'[data-edit-pay]','[data-save-pay]');
   }
 });
+function fitKpiValues(){
+  for(const row of el('cards').querySelectorAll('.operation-cost .kpi-row, .operation-cost .timeline-costs')){
+    const values=[...row.querySelectorAll('article > strong')];
+    if(!values.length||!row.clientWidth)continue;
+    const setSize=size=>row.style.setProperty('--fitted-kpi-size',size+'rem');
+    const fits=()=>values.every(value=>value.scrollWidth<=value.clientWidth);
+    setSize(.92);
+    if(fits())continue;
+    let low=.2, high=.92;
+    for(let step=0;step<8;step++){
+      const middle=(low+high)/2;
+      setSize(middle);
+      if(fits())low=middle;
+      else high=middle;
+    }
+    setSize(low);
+  }
+}
+let previousKpiWidth=0;
+new ResizeObserver(([entry])=>{
+  const width=entry.contentRect.width;
+  if(width===previousKpiWidth)return;
+  previousKpiWidth=width;
+  fitKpiValues();
+}).observe(el('cards'));
+refreshCostWeeks(false);
 render();
 </script>
 </html>
