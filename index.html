@@ -696,7 +696,7 @@ function render() {
     const theme=d==='U'?'unloading':'loading';
     const vehicleCounts=['20GP','40HC','LRY'].map(kind=>[kind,items.filter(o=>o.kind===kind).length]).filter(([,count])=>count>0);
     const counts=`<div class="crew-counts vehicle-counts"><span>Total Vehicles <b>${items.length}</b></span>${vehicleCounts.map(([kind,count])=>`<span>${kind} <b>${count}</b></span>`).join('')}</div>`;
-    const details=items.length?counts+timelineCard(items,null)+roleHours(items.map(visitEstimate))+staffing(items):'';
+    const details=items.length?counts+timelineCard(items,null)+(!payrollUser&&publishedRoleTable(d)||roleHours(items.map(visitEstimate)))+staffing(items):'';
     return `<div class="operation-pair">
       <section class="kpi-group ${theme}"><h2>${label} Timeline</h2>${items.length?'<span class="labour-label">Labour Costing</span>':''}${selected?'<section id="visitCost" class="panel" aria-label="Selected crew costs"></section>':details}</section>
       <section class="kpi-group ${theme} operation-cost"><h2>${label} Costs</h2><div class="kpi-row">${metrics.join('')}</div><div class="timeline-costs" id="cost-${d}"></div></section>
@@ -1128,27 +1128,55 @@ async function refreshPublishedLabour(){
   if(error){console.warn('Published labour totals unavailable:',error.message);return;}
   publishedLabour.clear();
   for(const item of data??[])publishedLabour.set(JSON.stringify([item.customer,item.job]),item);
-  renderPublishedLabour();
+  render();
+}
+function publishedRoleTable(direction){
+  const item=publishedLabour.get(JSON.stringify([el('customer').value,el('job').value]));
+  const roles=item?.roles?.filter(row=>row.direction===direction);
+  if(!roles?.length)return '';
+  const body=crewRoles.map(([role])=>{
+    const row=roles.find(entry=>entry.role===role);
+    return row?`<tr><th scope="row">${esc(role)}</th><td>${duration(row.dayMinutes)}</td><td>${money(row.dayCost)}</td><td>${duration(row.otMinutes)}</td><td>${money(row.otCost)}</td><td>${money(row.totalCost)}</td></tr>`:'';
+  }).join('');
+  return '<p class="muted">Published role costs · All recorded operations for this job</p>'+crewTable(body,false);
 }
 function payrollCostSnapshot(records,hours){
   const jobs=new Map();
   for(const visit of operations){
     const time=splitWorkingMinutes(visit.start,visit.end);
     const key=JSON.stringify([visit.customer,visit.job]);
-    if(!jobs.has(key))jobs.set(key,{customer:visit.customer,job:visit.job,amount:0,visits:0,pricedVisits:0});
+    if(!jobs.has(key))jobs.set(key,{customer:visit.customer,job:visit.job,amount:0,visits:0,pricedVisits:0,roles:new Map()});
     const total=jobs.get(key);
     total.visits++;
     if(!time)continue;
     let priced=false;
-    for(const epf of new Set(crewRoles.flatMap(([,field])=>visit[field].map(payrollEpf)))){
-      const person=records.get(epf);
-      if(!person)continue;
-      priced=true;
-      total.amount+=time.day/60*person.regularPay/hours+time.ot/60*overtimeRate(person.basic);
+    const counted=new Set();
+    for(const [role,field] of crewRoles){
+      for(const epf of visit[field].map(payrollEpf)){
+        const person=records.get(epf);
+        if(!person||counted.has(epf))continue;
+        counted.add(epf);
+        priced=true;
+        const roleKey=visit.direction+':'+role;
+        if(!total.roles.has(roleKey))total.roles.set(roleKey,{direction:visit.direction,role,dayMinutes:0,otMinutes:0,dayCost:0,otCost:0});
+        const row=total.roles.get(roleKey);
+        const dayCost=time.day/60*person.regularPay/hours;
+        const otCost=time.ot/60*overtimeRate(person.basic);
+        row.dayMinutes+=time.day;
+        row.otMinutes+=time.ot;
+        row.dayCost+=dayCost;
+        row.otCost+=otCost;
+        total.amount+=dayCost+otCost;
+      }
     }
     if(priced)total.pricedVisits++;
   }
-  return [...jobs.values()].filter(item=>item.pricedVisits).map(item=>({...item,amount:Math.round(item.amount*100)/100}));
+  const round=value=>Math.round(value*100)/100;
+  return [...jobs.values()].filter(item=>item.pricedVisits).map(item=>({
+    ...item,amount:round(item.amount),roles:[...item.roles.values()].map(row=>({
+      ...row,dayCost:round(row.dayCost),otCost:round(row.otCost),totalCost:round(row.dayCost+row.otCost)
+    }))
+  }));
 }
 async function payrollRpc(name,...args){
   if(!payrollUser)throw new Error('Sign in to load shared payroll.');
