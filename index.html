@@ -451,20 +451,22 @@ html{font-size:clamp(15px,calc(11px + .36vw),20px)}
 .time-labels :is(.day-chip,.ot-chip){font-weight:600}
 
 #payrollCostSection .payroll-table{width:100%;table-layout:fixed;border-collapse:collapse}
-#payrollCostSection .payroll-table :is(th,td){padding:3px clamp(1px,.35vw,6px);font-size:clamp(8px,.86vw,13px);line-height:1.25;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
-#payrollCostSection .payroll-table :is(th,td):first-child{width:6%}
-#payrollCostSection .payroll-table :is(th,td):nth-child(2){width:28%}
-#payrollCostSection .payroll-table :is(th,td):nth-child(3){width:13%}
-#payrollCostSection .payroll-table :is(th,td):last-child{width:18%}
+#costSettings #payrollCostSection .payroll-table :is(th,td){padding:3px clamp(1px,.35vw,6px);font-size:clamp(8px,.86vw,13px);line-height:1.25;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+#costSettings #payrollCostSection .payroll-table :is(th,td):first-child{width:6%}
+#costSettings #payrollCostSection .payroll-table :is(th,td):nth-child(2){width:24%}
+#costSettings #payrollCostSection .payroll-table :is(th,td):nth-child(3){width:17%}
+#costSettings #payrollCostSection .payroll-table :is(th,td):last-child{width:18%}
 #costSettings #payrollRows input{box-sizing:border-box;min-width:0;font:inherit;padding:2px 3px;margin:0}
 #costSettings #payrollRows input:disabled,#costSettings #payrollRows input:enabled + .payroll-value{display:none}
 #costSettings #payrollRows input[type=number]{appearance:textfield}
 #costSettings #payrollRows input::-webkit-inner-spin-button{appearance:none}
-.pay-actions-line{display:flex;flex-wrap:nowrap;gap:clamp(1px,.25vw,4px)}
+#payrollRows .payroll-value{display:block;min-width:0}
+#costSettings #payrollCostSection .payroll-table :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:right;font-variant-numeric:tabular-nums}
+.pay-actions-line{justify-content:flex-end;display:flex;flex-wrap:nowrap;gap:clamp(1px,.25vw,4px)}
 #costSettings #payrollRows .pay-actions button{font:inherit;font-weight:600;white-space:nowrap;padding:2px clamp(1px,.3vw,6px);margin:0;box-shadow:none}
 @media(max-width:600px){
-  #payrollCostSection .payroll-table :is(th,td):nth-child(2){width:22%}
-  #payrollCostSection .payroll-table :is(th,td):last-child{width:24%}
+  #costSettings #payrollCostSection .payroll-table :is(th,td):nth-child(2){width:22%}
+  #costSettings #payrollCostSection .payroll-table :is(th,td):last-child{width:24%}
 }
 .payroll-coverage ul{padding-inline-start:1.15rem;margin-block:5px}
 
@@ -1164,10 +1166,15 @@ function parsePayrollRows(records){
   return master;
 }
 const payrollAdminEmail='sandunpersonal@gmail.com';
-const payrollClient=window.supabase?.createClient(
+const payrollConnection=[
   'https://grwpirvruekocuydrjhn.supabase.co',
   'sb_publishable_4CS6L84JSXxjm1TPUJWbCQ_ZwUwjzTm',
+];
+const payrollClient=window.supabase?.createClient(...payrollConnection,
   {auth:{storageKey:'gtl-payroll-auth',persistSession:true,detectSessionInUrl:true}}
+);
+const publishedCostsClient=window.supabase?.createClient(...payrollConnection,
+  {auth:{storageKey:'gtl-published-costs',persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}
 );
 let payrollUser=null;
 function setPayrollSession(user){
@@ -1217,8 +1224,8 @@ const jobCostKey=(customer,job)=>JSON.stringify([customer,job]);
 const dashboardJobCosts=()=>publishedJobCosts.get(jobCostKey(el('customer').value,el('job').value))??costSettings;
 let jobCostPublishQueue=Promise.resolve();
 async function refreshPublishedJobCosts(){
-  if(!payrollClient)return;
-  const {data,error}=await payrollClient.rpc('gtl_public_job_costs');
+  if(!publishedCostsClient)return;
+  const {data,error}=await publishedCostsClient.rpc('gtl_public_job_costs');
   if(error)return;
   publishedJobCosts.clear();
   for(const item of data??[])publishedJobCosts.set(jobCostKey(item.customer,item.job),item.costs);
@@ -1248,8 +1255,8 @@ el('publishJobCosts').addEventListener('click',()=>{
   if(window.confirm('Publish this job’s saved area rates and charge amounts on the public dashboard?'))publishJobCosts();
 });
 async function refreshPublishedLabour(){
-  if(!payrollClient)return;
-  const {data,error}=await payrollClient.rpc('gtl_public_monthly_labour');
+  if(!publishedCostsClient)return;
+  const {data,error}=await publishedCostsClient.rpc('gtl_public_monthly_labour');
   if(error){console.warn('Monthly labour totals unavailable:',error.message);return;}
   publishedLabour.clear();
   for(const {month,totals} of data??[]){
