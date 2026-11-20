@@ -622,6 +622,7 @@ function staffing(rows) {
     <div class="scroll"><table><thead><tr><th scope="col">Type</th><th scope="col">Vehicles</th><th scope="col">Avg. Crew / Vehicle</th><th scope="col">Operators</th><th scope="col">Tally Clerks</th><th scope="col">Supervisors</th></tr></thead><tbody>${body}</tbody></table></div>
     <p>Average staff per vehicle operation.</p></details>`;
 }
+const formatShiftCost=value=>value==null||Math.abs(value)<0.005?'–':money(value);
 function roleHours(estimates){
   const crew=estimates.flatMap(estimate=>estimate.people);
   return crewTable(crewRoles.map(([role])=>{
@@ -629,7 +630,7 @@ function roleHours(estimates){
     if(!people.length)return '';
     const day=sum(people,'day'),ot=sum(people,'ot');
     const known=key=>people.filter(person=>person[key]!==null&&(key==='dayCost'?person.day:person.ot)>0);
-    const subtotal=key=>known(key).length?money(sum(known(key),key)):'—';
+    const subtotal=key=>known(key).length?formatShiftCost(sum(known(key),key)):'—';
     const priced=people.filter(person=>person.priced);
     return `<tr><th scope="row">${role}</th><td>${duration(day)}</td><td>${subtotal('dayCost')}</td><td>${duration(ot)}</td><td>${subtotal('otCost')}</td><td>${priced.length?money(sum(priced,'total'))+(people.some(p=>!p.complete)?' · partial':''):'—'} <small class="staff-count">${new Set(people.map(person=>person.epf)).size} staff</small></td></tr>`;
   }).join(''),false);
@@ -882,7 +883,6 @@ function visitEstimate(visit){
   const roles=[['Supervisor',visit.supervisors],['Tally Clerk',visit.tally],['Operator',visit.operators]];
   const assigned=new Set();
   const costs=new Map();
-  const showCost=value=>value===null?'—':money(value);
   const personRows=roles.flatMap(([role,list])=>[...new Set(list.map(String))].map(epf=>{
     const saved=payroll.get(epf);
     const master=payrollMaster.get(payrollEpf(epf));
@@ -898,7 +898,7 @@ function visitEstimate(visit){
     const total=(dayCost??0)+(otCost??0);
     assigned.add(epf);
     if(!costs.has(epf))costs.set(epf,{epf,role,day:time?.day??0,ot:time?.ot??0,dayCost,otCost,priced,complete,total});
-    return `<tr><th scope="row">${role}</th><td>${esc(epf)}</td><td>${showDay?duration(time.day):'—'}</td><td>${showDay?showCost(dayCost):'—'}</td><td>${showOT?duration(time.ot):'—'}</td><td>${showOT?showCost(otCost):'—'}</td><td>${priced?money(total):'—'}${priced&&!complete?' · partial':''}</td></tr>`;
+    return `<tr><th scope="row">${role}</th><td>${esc(epf)}</td><td>${showDay?duration(time.day):'—'}</td><td>${showDay?formatShiftCost(dayCost):'—'}</td><td>${showOT?duration(time.ot):'—'}</td><td>${showOT?formatShiftCost(otCost):'—'}</td><td>${priced?money(total):'—'}${priced&&!complete?' · partial':''}</td></tr>`;
   })).join('');
   const recordedCosts=[...costs.values()];
   const labour=recordedCosts.reduce((total,entry)=>total+entry.total,0);
@@ -1132,7 +1132,7 @@ function publishedRoleTable(direction,visitId){
   if(!roles?.length)return '';
   const body=crewRoles.map(([role])=>{
     const row=roles.find(entry=>entry.role===role);
-    return row?`<tr><th scope="row">${esc(role)}</th><td>${duration(row.dayMinutes)}</td><td>${money(row.dayCost)}</td><td>${duration(row.otMinutes)}</td><td>${money(row.otCost)}</td><td>${money(row.totalCost)}</td></tr>`:'';
+    return row?`<tr><th scope="row">${esc(role)}</th><td>${duration(row.dayMinutes)}</td><td>${formatShiftCost(row.dayCost)}</td><td>${duration(row.otMinutes)}</td><td>${formatShiftCost(row.otCost)}</td><td>${money(row.totalCost)}</td></tr>`:'';
   }).join('');
   const scope=visitId===undefined?'All recorded operations for this job':'Selected vehicle operation';
   return '<p class="muted">Published role costs · '+scope+'</p>'+crewTable(body,false);
