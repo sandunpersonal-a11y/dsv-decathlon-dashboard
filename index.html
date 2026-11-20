@@ -421,6 +421,11 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 #payrollUploadAccess{margin:0 0 4px;font-size:.8rem}
 #payrollUploadLabel[hidden]{display:none}
 #payrollUploadLabel:not([hidden]){display:block;font-weight:700}
+#payrollUploadPanel :is(#payrollUploadResult,#drivePayrollStatus){margin:5px 0 0;font-size:.82rem}
+#payrollUploadResult:empty,#drivePayrollStatus:empty{display:none}
+#payrollUploadResult[data-state="error"]{color:#9a2b23}
+#payrollUploadResult[data-state="saved"]{color:#086a53}
+#submitPayrollFile{width:auto;margin-top:6px}
 #payrollMasterFile{display:block;margin-top:4px;max-width:100%}
 #payrollLogin{max-width:min(92vw,400px)}
 </style>
@@ -476,13 +481,16 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
   <p id="payrollUploadAccess" role="status">Sign in to check payroll upload access.</p>
   <label id="payrollUploadLabel" hidden>Upload Payroll CSV
     <input id="payrollMasterFile" type="file" accept=".csv,text/csv">
+    <button id="submitPayrollFile" type="button" disabled>Upload CSV</button>
   </label>
+  <p id="payrollUploadResult" role="status"></p>
+  <p id="drivePayrollStatus" role="status"></p>
 </div>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
 <p class="muted">Imported regular rate = (Gross Total − OT [1.50] Amount) ÷ paid monthly hours. OT per hour = Basic Salary ÷ 200 × 1.5.</p>
 <div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Allowances and Incentives (LKR)</th><th>Gross less OT (LKR)</th><th>Regular / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
 <button id="refreshPayroll" type="button">Refresh shared payroll</button>
-<p id="drivePayrollStatus" role="status"></p>
+
 
 <button id="addPay" type="button">Add Employee</button>
 </section>
@@ -1079,7 +1087,13 @@ const payrollClient=window.supabase?.createClient(
 );
 let payrollUser=null;
 function setPayrollSession(user){
-  if(payrollUser?.id!==user?.id){payrollMaster.clear();sharedPaidHours=null;payrollReadVersion++;}
+  if(payrollUser?.id!==user?.id){
+    payrollMaster.clear();sharedPaidHours=null;payrollReadVersion++;
+    el('payrollUploadResult').textContent='';
+    el('drivePayrollStatus').textContent='';
+    el('payrollMasterFile').value='';
+    el('submitPayrollFile').disabled=true;
+  }
   payrollUser=user;
   el('payrollSignIn').hidden=Boolean(user);
   el('payrollSignOut').hidden=!user;
@@ -1144,19 +1158,48 @@ async function refreshSharedPayroll(){
   }
 }
 el('refreshPayroll').addEventListener('click',refreshSharedPayroll);
-el('payrollMasterFile').addEventListener('change',async event=>{
-  const input=event.target;
+el('payrollMasterFile').addEventListener('change',()=>{
+  const file=el('payrollMasterFile').files[0];
+  el('submitPayrollFile').disabled=!file;
+  const feedback=el('payrollUploadResult');
+  feedback.dataset.state='';
+  feedback.textContent=file?'Ready to upload: '+file.name:'';
+});
+el('submitPayrollFile').addEventListener('click',async()=>{
+  const input=el('payrollMasterFile');
+  const submit=el('submitPayrollFile');
+  const feedback=el('payrollUploadResult');
   const file=input.files[0];
-  if(!file)return;
+  const userId=payrollUser?.id;
+  if(!file||payrollUser?.email?.trim().toLowerCase()!==payrollAdminEmail)return;
+  if(!(costSettings.hours>0)){
+    feedback.dataset.state='error';
+    feedback.textContent='Set and save paid monthly hours before uploading.';
+    return;
+  }
+  if(!window.confirm('Replace the shared payroll master for all dashboard users?'))return;
+  const hours=costSettings.hours;
+  input.disabled=true;
+  submit.disabled=true;
+  feedback.dataset.state='';
+  feedback.textContent='Uploading '+file.name+'…';
   try{
-    if(!(costSettings.hours>0))throw new Error('Set and save paid monthly hours before uploading.');
-    if(!window.confirm('Replace the shared payroll master for all dashboard users?'))return;
-    input.disabled=true;
-    el('drivePayrollStatus').textContent='Uploading payroll…';
-    await payrollRpc('uploadPayroll',await file.text(),costSettings.hours);
+    const csv=await file.text();
+    if(payrollUser?.id!==userId)return;
+    await payrollRpc('uploadPayroll',csv,hours);
+    if(payrollUser?.id!==userId)return;
+    feedback.dataset.state='saved';
+    feedback.textContent='Shared payroll saved: '+file.name+'. See matching EPFs below.';
+    input.value='';
     await refreshSharedPayroll();
-  }catch(error){el('drivePayrollStatus').textContent=error.message;}
-  finally{input.disabled=false;input.value='';}
+  }catch(error){
+    if(payrollUser?.id!==userId)return;
+    feedback.dataset.state='error';
+    feedback.textContent='Upload failed: '+error.message;
+  }finally{
+    input.disabled=false;
+    submit.disabled=!input.files.length;
+  }
 });
 el('payrollRows').addEventListener('change',async event=>{
   if(!event.target.matches('[data-field="epf"]'))return;
