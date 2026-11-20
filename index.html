@@ -495,8 +495,8 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 <section id="payrollCostSection"><h3>Labour Payroll</h3>
 <div id="payrollUploadPanel">
   <p id="payrollUploadAccess" role="status">Sign in to check payroll upload access.</p>
-  <label id="payrollUploadLabel" hidden>Upload Payroll CSV
-    <input id="payrollMasterFile" type="file" accept=".csv,text/csv">
+  <label id="payrollUploadLabel" hidden>Upload GTL and Prime payroll CSV files together
+    <input id="payrollMasterFile" type="file" accept=".csv,text/csv" multiple>
     <button id="submitPayrollFile" type="button" disabled>Upload CSV</button>
   </label>
   <p id="payrollUploadResult" role="status"></p>
@@ -1252,12 +1252,28 @@ function payrollCostSnapshot(records,hours){
     }))
   }));
 }
+function mergePayrollFiles(files){
+  const records=new Map(), sources=new Map();
+  for(const file of files){
+    let parsed;
+    try{parsed=parsePayrollCsv(file.csv);}
+    catch(error){throw new Error(file.name+': '+error.message);}
+    for(const [epf,record] of parsed){
+      if(records.has(epf)&&JSON.stringify(records.get(epf))!==JSON.stringify(record)){
+        throw new Error('Conflicting EPF '+epf+' in '+sources.get(epf)+' and '+file.name+'.');
+      }
+      records.set(epf,record);
+      sources.set(epf,file.name);
+    }
+  }
+  return records;
+}
 async function payrollRpc(name,...args){
   if(!payrollUser)throw new Error('Sign in to load shared payroll.');
   const upload=name==='uploadPayroll';
   let params={epfs:upload?[]:args[0].map(payrollEpf)};
   if(upload){
-    const records=parsePayrollCsv(args[0]);
+    const records=mergePayrollFiles(args[0]);
     params={records:Object.fromEntries(records),paid_hours:args[1],totals:payrollCostSnapshot(records,args[1])};
   }
   const {data,error}=await payrollClient.rpc(upload?'gtl_publish_payroll':'gtl_read_payroll',params);
@@ -1308,37 +1324,37 @@ async function refreshSharedPayroll(){
 }
 el('refreshPayroll').addEventListener('click',refreshSharedPayroll);
 el('payrollMasterFile').addEventListener('change',()=>{
-  const file=el('payrollMasterFile').files[0];
-  el('submitPayrollFile').disabled=!file;
+  const files=Array.from(el('payrollMasterFile').files);
+  el('submitPayrollFile').disabled=!files.length;
   const feedback=el('payrollUploadResult');
   feedback.dataset.state='';
-  feedback.textContent=file?'Ready to upload: '+file.name:'';
+  feedback.textContent=files.length?'Ready to upload: '+files.map(file=>file.name).join(', '):'';
 });
 el('submitPayrollFile').addEventListener('click',async()=>{
   const input=el('payrollMasterFile');
   const submit=el('submitPayrollFile');
   const feedback=el('payrollUploadResult');
-  const file=input.files[0];
+  const files=Array.from(input.files);
   const userId=payrollUser?.id;
-  if(!file||payrollUser?.email?.trim().toLowerCase()!==payrollAdminEmail)return;
+  if(!files.length||payrollUser?.email?.trim().toLowerCase()!==payrollAdminEmail)return;
   if(!(costSettings.hours>0)){
     feedback.dataset.state='error';
     feedback.textContent='Set and save paid monthly hours before uploading.';
     return;
   }
-  if(!window.confirm('Replace the shared payroll master for all dashboard users?'))return;
+  if(!window.confirm('Replace the shared payroll master with the selected CSV file(s)? Include both GTL and Prime if both apply.'))return;
   const hours=costSettings.hours;
   input.disabled=true;
   submit.disabled=true;
   feedback.dataset.state='';
-  feedback.textContent='Uploading '+file.name+'…';
+  feedback.textContent='Uploading '+files.length+' payroll file(s)…';
   try{
-    const csv=await file.text();
+    const inputs=await Promise.all(files.map(async file=>({name:file.name,csv:await file.text()})));
     if(payrollUser?.id!==userId)return;
-    await payrollRpc('uploadPayroll',csv,hours);
+    await payrollRpc('uploadPayroll',inputs,hours);
     if(payrollUser?.id!==userId)return;
     feedback.dataset.state='saved';
-    feedback.textContent='Shared payroll saved: '+file.name+'. See matching EPFs below.';
+    feedback.textContent='Shared payroll saved from '+files.length+' CSV file(s). See matching EPFs below.';
     input.value='';
     await Promise.all([refreshSharedPayroll(),refreshPublishedLabour()]);
   }catch(error){
