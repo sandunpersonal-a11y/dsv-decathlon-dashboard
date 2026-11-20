@@ -1055,8 +1055,11 @@ function parsePayrollRows(records){
     if(!/^\d+$/.test(epf))continue;
     if(master.has(epf))throw new Error('Duplicate EPF in payroll CSV at row '+(i+1)+'.');
     const number=(label,optional=false)=>{
-      const raw=get(label).replace(/,/g,'');
-      const value=raw===''?(optional?0:NaN):Number(raw);
+      const raw=get(label).replace(/^(?:LKR|Rs\.?)\s*/i,'').trim();
+      if(optional&&/^(?:[-–—]+|n\/?a|nil)?$/i.test(raw))return 0;
+      const normalized=/^\(.*\)$/.test(raw)?'-'+raw.slice(1,-1).trim():raw;
+      const value=/^[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]+)?$/.test(normalized)?
+        Number(normalized.replaceAll(',','')):NaN;
       if(!Number.isFinite(value))throw new Error('Invalid '+label+' at row '+(i+1)+'.');
       return value;
     };
