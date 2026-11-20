@@ -460,8 +460,9 @@ button:not(:disabled){box-shadow:inset 0 1px 0 #ffffff8c,0 2px 0 #15395745}
 </section>
 <section id="payrollCostSection"><h3>Labour Payroll</h3>
 <section class="rate-box" data-rate="hours"><label>Default Paid Hours per Month<input name="hours" type="number" min="0.01" step="any" readonly></label><button type="button" data-edit-rate>Edit</button><button type="button" data-save-rate disabled>Save</button></section>
-<p class="muted">Default paid hours apply to all employees. OT per hour = Basic Salary ÷ 200 × 1.5.</p>
-<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Fixed Allowance (LKR)</th><th>Basic / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
+<p class="muted">Imported regular rate = (Gross Total − OT [1.50] Amount) ÷ paid monthly hours. OT per hour = Basic Salary ÷ 200 × 1.5.</p>
+<div class="scroll"><table><thead><tr><th>EPF Number</th><th>Designation</th><th>Basic Salary (LKR)</th><th>Allowances and Incentives (LKR)</th><th>Gross less OT (LKR)</th><th>Regular / Hour (LKR)</th><th>OT / Hour (LKR)</th><th>Action</th></tr></thead><tbody id="payrollRows"></tbody></table></div>
+<label>Payroll Master CSV <input id="payrollMasterFile" type="file" accept=".csv,text/csv"></label><p class="muted">Import the GTL payroll tab as CSV. Only matching EPFs are applied to the selected customer and job.</p>
 <button id="addPay" type="button">Add Employee</button>
 </section>
 <section id="operatingCostSection" hidden><h3 id="chargeSectionTitle">Operating Costs</h3>
@@ -806,6 +807,11 @@ for(const visit of activeOperations()){
 }
 return [...payrollDefaults].map(([epf,roles])=>({epf,designation:[...roles].join(' / '),basic:null,allowance:null}));
 }
+let payrollMaster=new Map();
+const payrollEpf=value=>String(value??'').trim().replace(/^0+(?=\d)/,'');
+const regularPay=person=>knownAmount(person?.regularPay)?person.regularPay:
+  knownAmount(person?.basic)&&knownAmount(person?.allowance)?person.basic+person.allowance:null;
+
 function readCosts(){
   const defaultPayroll=defaultPayrollForJob();
   try {
@@ -830,6 +836,7 @@ function changeJob(){
   from=period.date;to=period.periodEnd;
   for(const id of ['direction','kind','vehicle'])el(id).value='';
   costSettings=readCosts();
+  applyPayrollMaster();
   refreshCostWeeks(false);
   render();
 }
@@ -846,8 +853,8 @@ function visitEstimate(visit){
   const personRows=roles.flatMap(([role,list])=>[...new Set(list.map(String))].map(epf=>{
     const person=payroll.get(epf);
     const hours=costSettings.hours;
-    const regularRate=person&&knownAmount(person.basic)&&knownAmount(person.allowance)&&hours>0?
-      (person.basic+person.allowance)/hours:null;
+    const monthly=regularPay(person);
+    const regularRate=knownAmount(monthly)&&hours>0?monthly/hours:null;
     const dayCost=time?.day===0?0:time&&regularRate!==null?regularRate*time.day/60:null;
     const otRate=overtimeRate(person?.basic);
     const otCost=time?.ot===0?0:time&&otRate!==null?otRate*time.ot/60:null;
@@ -910,19 +917,22 @@ function renderVisitCost(visit,rows,direction){
 function addPayrollRow(person={},editing=false){
   const readonly=editing?'':' readonly disabled';
   el('payrollRows').insertAdjacentHTML('beforeend',`<tr data-epf="${esc(person.epf??'')}"><td><input aria-label="EPF Number" data-field="epf" value="${esc(person.epf??'')}"${readonly}></td>
-    <td><input aria-label="Designation" data-field="designation" value="${esc(person.designation??'')}"${readonly}></td>
+    <td>${person.name?`<div>${esc(person.name)} · ${esc(person.category??'')}</div>`:''}<input aria-label="Designation" data-field="designation" value="${esc(person.designation??'')}"${readonly}></td>
     <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
-    <td><input aria-label="Fixed Allowance" type="number" min="0" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
+    <td><input aria-label="Allowances and Incentives" type="number" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
+    <td><input aria-label="Gross less OT" type="number" min="0" step="any" data-field="regularPay" value="${esc(person.regularPay??'')}"${readonly}></td>
     <td><output data-basic-hour>—</output></td>
     <td><output data-ot-hour aria-label="Calculated OT per Hour">${overtimeRate(person.basic)===null?'—':fmt(overtimeRate(person.basic),2)}</output></td>
     <td class="pay-actions"><button type="button" data-edit-pay ${editing?'disabled':''}>Edit</button><button type="button" data-save-pay ${editing?'':'disabled'}>Save</button><button type="button" data-remove-pay>Remove</button></td></tr>`);
 }
 function paintBasicHourly(row){
   const basic=amount(row.querySelector('[data-field="basic"]').value);
+  const fields=Object.fromEntries([...row.querySelectorAll('[data-field]')].map(input=>[input.dataset.field,amount(input.value)]));
+  const monthly=regularPay(fields);
   const hours=costSettings.hours;
   const ot=overtimeRate(basic);
   row.querySelector('[data-ot-hour]').textContent=ot===null?'—':fmt(ot,2);
-  row.querySelector('[data-basic-hour]').textContent=knownAmount(basic)&&hours>0?fmt(basic/hours,2):'—';
+  row.querySelector('[data-basic-hour]').textContent=knownAmount(monthly)&&hours>0?fmt(monthly/hours,2):'—';
 }
 function roleOrder(person){
   const rank=crewRoles.findIndex(([role])=>person.designation.toLowerCase().includes(role.toLowerCase()));
@@ -968,9 +978,7 @@ el('payrollPinForm').addEventListener('submit',event=>{
     input.value=costSettings[box.dataset.rate]??'';
     setEditing(box,[input],false,'[data-edit-rate]','[data-save-rate]');
   }
-  el('payrollRows').innerHTML='';
-  for(const person of [...costSettings.payroll].sort((a,b)=>roleOrder(a)-roleOrder(b)||a.epf.localeCompare(b.epf,undefined,{numeric:true})))addPayrollRow(person);
-  for(const row of el('payrollRows').rows)paintBasicHourly(row);
+  renderPayrollRows();
   el('costMessage').textContent='';
   el('jobCostContext').textContent=`${el('customer').value} · Job ${el('job').value}`;
   el('jobCharges').innerHTML=chargeCategories.map(([key,label])=>
@@ -979,6 +987,87 @@ el('payrollPinForm').addEventListener('submit',event=>{
   selectCostTab('payroll');
   el('costSettings').scrollTop=0;
   el('costSettings').showModal();
+});
+function renderPayrollRows(){
+  el('payrollRows').innerHTML='';
+  for(const person of [...costSettings.payroll].sort((a,b)=>roleOrder(a)-roleOrder(b)||a.epf.localeCompare(b.epf,undefined,{numeric:true})))addPayrollRow(person);
+  for(const row of el('payrollRows').rows)paintBasicHourly(row);
+}
+function parsePayrollCsv(csv){
+  const records=[];
+  let row=[],value='',quoted=false;
+  csv=csv.replace(/^\uFEFF/,'');
+  for(let i=0;i<csv.length;i++){
+    const char=csv[i];
+    if(char==='"'&&(quoted||value==='')){
+      if(quoted&&csv[i+1]==='"'){value+='"';i++;}
+      else quoted=!quoted;
+    }else if(!quoted&&(char===','||char==='\n'||char==='\r')){
+      row.push(value);value='';
+      if(char!==','){records.push(row);row=[];if(char==='\r'&&csv[i+1]==='\n')i++;}
+    }else value+=char;
+  }
+  if(quoted)throw new Error('CSV contains an unclosed quoted field.');
+  records.push([...row,value]);
+  const normalize=label=>label.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const allowances=['Ser.tra Allowance','Travelling Allowance','Incentive','Laptop Payment','Other Addition 1','Other Addition 2','Variable Incentives'];
+  const required=['EPF','Name','Category','Basic Salary',...allowances,'OT [1.50] Amount','Gross Total'];
+  const header=records.findIndex(cells=>required.every(label=>cells.map(normalize).includes(normalize(label))));
+  if(header<0)throw new Error('Payroll CSV is missing one or more required column headings.');
+  const columns=records[header].map(normalize);
+  const master=new Map();
+  for(let i=header+1;i<records.length;i++){
+    const row=records[i];
+    const get=label=>(row[columns.indexOf(normalize(label))]??'').trim();
+    const epf=payrollEpf(get('EPF'));
+    if(!/^\d+$/.test(epf))continue;
+    if(master.has(epf))throw new Error('Duplicate EPF in payroll CSV at row '+(i+1)+'.');
+    const number=(label,optional=false)=>{
+      const raw=get(label).replace(/,/g,'');
+      const value=raw===''?(optional?0:NaN):Number(raw);
+      if(!Number.isFinite(value))throw new Error('Invalid '+label+' at row '+(i+1)+'.');
+      return value;
+    };
+    const basic=number('Basic Salary'),gross=number('Gross Total'),otPaid=number('OT [1.50] Amount',true);
+    const allowance=allowances.reduce((sum,label)=>sum+number(label,true),0);
+    if(basic<0||otPaid<0||gross<otPaid)throw new Error('Invalid salary or OT at row '+(i+1)+'.');
+    master.set(epf,{name:get('Name'),category:get('Category'),basic,allowance,otPaid,gross,regularPay:Math.round((gross-otPaid)*100)/100});
+  }
+  if(!master.size)throw new Error('No payroll rows found.');
+  return master;
+}
+function applyPayrollMaster(){
+  let matches=0;
+  const payroll=costSettings.payroll.map(person=>{
+    const record=payrollMaster.get(payrollEpf(person.epf));
+    if(!record)return person;
+    matches++;
+    return {...person,...record};
+  });
+  if(matches&&!saveCosts({...costSettings,payroll}))throw new Error('Browser storage is unavailable.');
+  return matches;
+}
+el('payrollMasterFile').addEventListener('change',async event=>{
+  const file=event.target.files[0];
+  if(!file)return;
+  try{
+    payrollMaster=parsePayrollCsv(await file.text());
+    const matches=applyPayrollMaster();
+    renderPayrollRows();
+    el('costMessage').textContent=matches+' EPF(s) matched for this job.'+(costSettings.hours>0?'':' Set paid monthly hours to calculate regular rates.');
+  }catch(error){el('costMessage').textContent=error.message;}
+  finally{event.target.value='';}
+});
+el('payrollRows').addEventListener('change',event=>{
+  if(!event.target.matches('[data-field="epf"]'))return;
+  const row=event.target.closest('tr');
+  const record=payrollMaster.get(payrollEpf(event.target.value));
+  if(!record)return;
+  for(const field of ['basic','allowance','regularPay'])row.querySelector('[data-field="'+field+'"]').value=record[field];
+  const designation=row.querySelector('[data-field="designation"]');
+  if(!designation.value)designation.value=record.category;
+  paintBasicHourly(row);
+  el('costMessage').textContent='Payroll fields filled. Save the employee to apply them.';
 });
 el('addPay').addEventListener('click',()=>addPayrollRow({},true));
 el('cancelCosts').addEventListener('click',()=>el('costSettings').close());
@@ -1178,7 +1267,7 @@ el('costForm').addEventListener('click',event=>{
   }
 });
 el('payrollRows').addEventListener('input',event=>{
-  if(event.target.matches('[data-field="basic"]'))paintBasicHourly(event.target.closest('tr'));
+  if(event.target.matches('[data-field="basic"],[data-field="allowance"],[data-field="regularPay"]'))paintBasicHourly(event.target.closest('tr'));
 });
 el('payrollRows').addEventListener('click',event=>{
   const button=event.target.closest('button');
@@ -1204,9 +1293,11 @@ el('payrollRows').addEventListener('click',event=>{
   }
   if(previous&&previous!==person.epf)removed.add(previous);
   removed.delete(person.epf);
-  payroll.push({...person,basic:amount(person.basic),allowance:amount(person.allowance)??0});
+  const source=payrollMaster.get(payrollEpf(person.epf))??costSettings.payroll.find(item=>item.epf===person.epf);
+  payroll.push({...source,...person,basic:amount(person.basic),allowance:amount(person.allowance)??0,regularPay:amount(person.regularPay)});
   if(saveCosts({...costSettings,payroll,removed:[...removed]})){
     row.dataset.epf=person.epf;
+    if(source?.name){renderPayrollRows();return;}
     setEditing(row,fields,false,'[data-edit-pay]','[data-save-pay]');
   }
 });
