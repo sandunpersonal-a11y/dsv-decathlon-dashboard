@@ -942,15 +942,16 @@ function renderVisitCost(visit,rows,direction){
       `<p>${esc(entry.month||entry.date)} · ${esc(label)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)} · <strong>${money(total)}</strong></p>`).join('')}</details>`;
   }
   if(!visit)return;
+  const publicRoleRows=(!payrollUser||sharedPaidHours===null)?publishedRoleTable(direction,visit.id):'';
   const chargeDetails=chargeCategories.flatMap(([key,label])=>categoryEntries(key).filter(entry=>!entry.date&&knownAmount(entry[visit.direction])).map(entry=>
     `<article class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.item||'—')}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(entry[visit.direction])}</strong></div></article>`)).join('');
   const {personRows,showDay,showOT,roles,assigned,missing,crewGap}=estimates[0];
   panel.innerHTML=`<div class="visit-time-heading"><span>${esc(visit.vehicle)} · Head Count ${esc(visit.heads)}</span></div>
     <div class="crew-counts time-chip"><span>${operationName(visit.direction)} Time <b>${duration(visit.minutes)}</b></span></div>
     ${timelineCard([visit],visit)}
-    ${personRows?crewTable(personRows,true):'<p class="muted">No matching crew EPF records.</p>'}
+    ${publicRoleRows||(personRows?crewTable(personRows,true):'<p class="muted">No matching crew EPF records.</p>')}
     <div class="crew-counts">${roles.map(([role,list])=>`<span>${role} <b>${new Set(list).size}</b></span>`).join('')}<span>Total Crew <b>${assigned.size}</b></span></div>
-    ${missing||crewGap?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
+    ${publicRoleRows&&matched.some(entry=>!entry.complete)?'<p class="muted">Published costs cover the crew with matched rates.</p>':!publicRoleRows&&(missing||crewGap)?`<p class="muted">${missing?missing+' EPF(s) missing an applicable rate or hours. ':''}${crewGap?'Recorded head count differs from listed crew.':''}</p>`:''}
     ${chargeDetails?`<div class="crew-mini-grid charge-list" aria-label="Additional cost items">${chargeDetails}</div>`:''}
     ${dated.map(({label,entry,total})=>`<div class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.date)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(total)}</strong></div></div>`).join('')}
     ${personRows&&roles.reduce((total,[,list])=>total+new Set(list.map(String)).size,0)>assigned.size?'<p class="muted">The labour total counts each EPF once per visit.</p>':''}`;
@@ -1124,15 +1125,17 @@ async function refreshPublishedLabour(){
   for(const item of data??[])publishedLabour.set(JSON.stringify([item.customer,item.job]),item);
   render();
 }
-function publishedRoleTable(direction){
+function publishedRoleTable(direction,visitId){
   const item=publishedLabour.get(JSON.stringify([el('customer').value,el('job').value]));
-  const roles=item?.roles?.filter(row=>row.direction===direction);
+  const roles=visitId===undefined?item?.roles?.filter(row=>row.direction===direction):
+    item?.operationCosts?.find(entry=>entry.id===String(visitId))?.roles;
   if(!roles?.length)return '';
   const body=crewRoles.map(([role])=>{
     const row=roles.find(entry=>entry.role===role);
     return row?`<tr><th scope="row">${esc(role)}</th><td>${duration(row.dayMinutes)}</td><td>${money(row.dayCost)}</td><td>${duration(row.otMinutes)}</td><td>${money(row.otCost)}</td><td>${money(row.totalCost)}</td></tr>`:'';
   }).join('');
-  return '<p class="muted">Published role costs · All recorded operations for this job</p>'+crewTable(body,false);
+  const scope=visitId===undefined?'All recorded operations for this job':'Selected vehicle operation';
+  return '<p class="muted">Published role costs · '+scope+'</p>'+crewTable(body,false);
 }
 function payrollCostSnapshot(records,hours){
   const jobs=new Map();
@@ -1146,6 +1149,7 @@ function payrollCostSnapshot(records,hours){
     let priced=false,operationAmount=0;
     const crew=new Set(crewRoles.flatMap(([,field])=>visit[field].map(payrollEpf)));
     const counted=new Set();
+    const operationRoles=new Map();
     for(const [role,field] of crewRoles){
       for(const epf of visit[field].map(payrollEpf)){
         const person=records.get(epf);
@@ -1163,13 +1167,23 @@ function payrollCostSnapshot(records,hours){
         row.otCost+=otCost;
         total.amount+=dayCost+otCost;
         operationAmount+=dayCost+otCost;
+        if(!operationRoles.has(role))operationRoles.set(role,{role,dayMinutes:0,otMinutes:0,dayCost:0,otCost:0});
+        const opRole=operationRoles.get(role);
+        opRole.dayMinutes+=time.day;
+        opRole.otMinutes+=time.ot;
+        opRole.dayCost+=dayCost;
+        opRole.otCost+=otCost;
       }
     }
     if(priced){
       total.pricedVisits++;
       total.operationCosts.push({
         id:String(visit.id),amount:Math.round(operationAmount*100)/100,
-        complete:counted.size===crew.size&&crew.size===visit.heads
+        complete:counted.size===crew.size&&crew.size===visit.heads,
+        roles:[...operationRoles.values()].map(row=>({
+          ...row,dayCost:Math.round(row.dayCost*100)/100,otCost:Math.round(row.otCost*100)/100,
+          totalCost:Math.round((row.dayCost+row.otCost)*100)/100
+        }))
       });
     }
   }
