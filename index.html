@@ -450,19 +450,22 @@ html{font-size:clamp(15px,calc(11px + .36vw),20px)}
 #costSettings #costForm{max-width:1600px;width:100%;padding:clamp(10px,2vw,30px)}
 .time-labels :is(.day-chip,.ot-chip){font-weight:600}
 
-#payrollCostSection .payroll-table{width:100%;table-layout:fixed}
-#payrollCostSection .payroll-table :is(th,td){padding:4px 3px;font-size:clamp(9px,1.03vw,15px);overflow:hidden;text-overflow:ellipsis}
-#payrollCostSection .payroll-table :is(th,td):first-child{width:7%}
-#payrollCostSection .payroll-table :is(th,td):nth-child(2){width:22%}
+#payrollCostSection .payroll-table{width:100%;table-layout:fixed;border-collapse:collapse}
+#payrollCostSection .payroll-table :is(th,td){padding:3px clamp(1px,.35vw,6px);font-size:clamp(8px,.86vw,13px);line-height:1.25;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+#payrollCostSection .payroll-table :is(th,td):first-child{width:6%}
+#payrollCostSection .payroll-table :is(th,td):nth-child(2){width:28%}
 #payrollCostSection .payroll-table :is(th,td):nth-child(3){width:13%}
-#payrollCostSection .payroll-table :is(th,td):last-child{width:20%}
-#costSettings #payrollRows input{box-sizing:border-box;min-width:0;font:inherit;padding:2px 3px}
-#costSettings #payrollRows input[readonly]{background:transparent;border-color:transparent;color:inherit}
+#payrollCostSection .payroll-table :is(th,td):last-child{width:18%}
+#costSettings #payrollRows input{box-sizing:border-box;min-width:0;font:inherit;padding:2px 3px;margin:0}
+#costSettings #payrollRows input:disabled,#costSettings #payrollRows input:enabled + .payroll-value{display:none}
 #costSettings #payrollRows input[type=number]{appearance:textfield}
 #costSettings #payrollRows input::-webkit-inner-spin-button{appearance:none}
-#costSettings #payrollRows .pay-actions{white-space:nowrap}
-#costSettings #payrollRows .pay-actions button{font:inherit;padding:2px clamp(1px,.3vw,5px);margin:0 1px 0 0}
-#costSettings #payrollRows .pay-actions button:disabled{display:none}
+.pay-actions-line{display:flex;flex-wrap:nowrap;gap:clamp(1px,.25vw,4px)}
+#costSettings #payrollRows .pay-actions button{font:inherit;font-weight:600;white-space:nowrap;padding:2px clamp(1px,.3vw,6px);margin:0;box-shadow:none}
+@media(max-width:600px){
+  #payrollCostSection .payroll-table :is(th,td):nth-child(2){width:22%}
+  #payrollCostSection .payroll-table :is(th,td):last-child{width:24%}
+}
 .payroll-coverage ul{padding-inline-start:1.15rem;margin-block:5px}
 
 .payroll-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin-bottom:12px}
@@ -977,14 +980,25 @@ function renderVisitCost(visit,rows,direction){
 }
 function addPayrollRow(person={},editing=false){
   const readonly=editing?'':' readonly disabled';
-  el('payrollRows').insertAdjacentHTML('beforeend',`<tr data-epf="${esc(person.epf??'')}"><td><input aria-label="EPF Number" data-field="epf" value="${esc(person.epf??'')}"${readonly}></td>
-    <td><input aria-label="Employee Name" title="${esc(person.name??'')}" data-field="name" value="${esc(person.name??'')}"${readonly}></td><td><input aria-label="Category" title="${esc(person.category??'')}" data-field="category" value="${esc(person.category??'')}"${readonly}></td>
-    <td><input aria-label="Basic Salary" type="number" min="0" step="any" data-field="basic" value="${esc(person.basic??'')}"${readonly}></td>
-    <td><input aria-label="Allowances and Incentives" type="number" step="any" data-field="allowance" value="${esc(person.allowance??'')}"${readonly}></td>
-    <td><input aria-label="Gross less OT" type="number" min="0" step="any" data-field="regularPay" value="${esc(person.regularPay??'')}"${readonly}></td>
+  const cell=(field,label,attributes='')=>{
+    const value=esc(person[field]??'');
+    return `<td><input aria-label="${label}" data-field="${field}" value="${value}" ${attributes}${readonly}><span class="payroll-value">${value||'—'}</span></td>`;
+  };
+  const actions=canManagePayroll()?`<div class="pay-actions-line">
+    <button type="button" data-edit-pay ${editing?'disabled':''}>Edit</button>
+    <button type="button" data-save-pay ${editing?'':'disabled'}>Save</button>
+    <button type="button" data-remove-pay>Remove</button>
+  </div>`:'';
+  el('payrollRows').insertAdjacentHTML('beforeend',`<tr data-epf="${esc(person.epf??'')}">
+    ${cell('epf','EPF Number')}
+    ${cell('name','Employee Name')}
+    ${cell('category','Category')}
+    ${cell('basic','Basic Salary','type="number" min="0" step="any"')}
+    ${cell('allowance','Allowances and Incentives','type="number" step="any"')}
+    ${cell('regularPay','Gross less OT','type="number" min="0" step="any"')}
     <td><output data-basic-hour>—</output></td>
-    <td><output data-ot-hour aria-label="Calculated OT per Hour">${overtimeRate(person.basic)===null?'—':fmt(overtimeRate(person.basic),2)}</output></td>
-    <td class="pay-actions"><button type="button" data-edit-pay ${editing||!canManagePayroll()?'disabled':''}>Edit</button><button type="button" data-save-pay ${editing?'':'disabled'}>Save</button><button type="button" data-remove-pay ${editing||canManagePayroll()?'':'disabled'}>Remove</button></td></tr>`);
+    <td><output data-ot-hour aria-label="Calculated OT per Hour">—</output></td>
+    <td class="pay-actions">${actions}</td></tr>`);
 }
 function paintBasicHourly(row){
   const basic=amount(row.querySelector('[data-field="basic"]').value);
