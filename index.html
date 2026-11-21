@@ -1524,7 +1524,7 @@ function parseMovementRows(rows){
     const start=timestamp(get('Start')),end=timestamp(get('End'));
     const minutes=start.includes('T')&&end.includes('T')?(Date.parse(end+'Z')-Date.parse(start+'Z'))/60000:null;
     if(minutes<0)throw new Error('End is before Start at row '+(index+1));
-    const epfs=field=>[...new Set(get(field).split(/[,;\s]+/).map(payrollEpf).filter(Boolean))];
+    const epfs=field=>[...new Set(get(field).split(/[,;\s]+/).map(payrollEpf).filter(epf=>epf&&epf!=='0'))];
     const operators=epfs('Operaters'),tally=epfs('Tally Cleak'),supervisors=epfs('Supervisor');
     const heads=new Set([...operators,...tally,...supervisors]).size;
     const rawKind=get('Load Size');
