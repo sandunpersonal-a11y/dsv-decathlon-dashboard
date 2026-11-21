@@ -1079,6 +1079,7 @@ function renderVisitCost(visit,rows,direction){
       `<p>${esc(entry.month||entry.date)} · ${esc(label)} · ${esc(entry.item)} · ${fmt(entry.quantity,3)} ${esc(entry.unit)} · <strong>${money(total)}</strong></p>`).join('')}</details>`;
   }
   if(!visit)return;
+  const jobCosts=dashboardJobCosts();
   const publicRoleRows=publishedRoleTable([visit],true);
   const chargeDetails=chargeCategories.flatMap(([key,label])=>categoryEntries(key,jobCosts).filter(entry=>!entry.date&&knownAmount(entry[visit.direction])).map(entry=>
     `<article class="crew-mini charge-mini"><div><b>${esc(label)}</b></div><div>${esc(entry.item||'—')}${entry.notes?' · '+esc(entry.notes):''}</div><div><strong>${money(entry[visit.direction])}</strong></div></article>`)).join('');
