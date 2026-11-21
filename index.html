@@ -1461,7 +1461,7 @@ function publishedRoleTable(visits,showVehicleCrew=false){
   }).join('');
   const missing=visits.filter(visit=>!operationPublication(visit)?.complete);
   const details=missing.map(visit=>{
-    const crew=new Set(crewRoles.flatMap(([,field])=>visit[field].map(payrollEpf)).filter(Boolean));
+    const crew=new Set(crewRoles.flatMap(([,field])=>visit[field].map(payrollEpf)).filter(epf=>epf&&epf!=='0'));
     const reasons=[];
     if(crew.size!==visit.heads)reasons.push('Recorded head count '+visit.heads+' · listed crew '+crew.size);
     const time=splitWorkingMinutes(visit.start,visit.end);
@@ -1484,15 +1484,15 @@ function publishedRoleTable(visits,showVehicleCrew=false){
         if(absent.length||invalid.length){
           if(time)reasons.push('Each: Day '+duration(time.day)+' / OT '+duration(time.ot));
         }
-        if(!reasons.length)reasons.push(ids.length?'Republish labour costs for '+month:'No crew EPFs recorded');
+        if(!ids.length)reasons.push('No crew EPFs recorded');
       }
     }
     const label=['Reg '+visit.reg,visit.vehicle,visit.start.replace('T',' ')].join(' · ');
-    return `<li><strong>${esc(label)}</strong> · ${esc(reasons.join(' · ')||'Payroll details require payroll admin sign-in')}</li>`;
-  }).join('');
+    return reasons.length?`<li><strong>${esc(label)}</strong> · ${esc(reasons.join(' · '))}</li>`:'';
+  }).filter(Boolean);
   const crewNote=crewStatus==='loading'?'<small>Loading crew EPFs…</small>':
     crewStatus==='unavailable'?'<small>Crew EPFs could not be loaded.</small>':'';
-  return crewTable(body,false)+crewNote+(missing.length?`<details class="payroll-coverage"><summary>${missing.length} operation(s) with missing payroll or incomplete crew rates</summary><ul>${details}</ul></details>`:'');
+  return crewTable(body,false)+crewNote+(details.length?`<details class="payroll-coverage"><summary>${details.length} operation(s) with crew costing issues</summary><ul>${details.join('')}</ul></details>`:'');
 }
 function payrollCostSnapshot(records,hours,month,operationRows=operations){
   const jobs=new Map();
